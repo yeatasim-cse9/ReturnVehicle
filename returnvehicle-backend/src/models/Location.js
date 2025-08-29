@@ -2,22 +2,14 @@ import mongoose from "mongoose";
 
 const LocationSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, index: true }, // e.g., "Chattogram"
-    division: { type: String, required: true, index: true }, // e.g., "Chattogram"
-    type: { type: String, default: "district", index: true }, // district | city | upazila (now: district)
-    alt: { type: [String], default: [] }, // alternative spellings, e.g., ["Chittagong"]
-    normalizedName: { type: String, index: true }, // lowercased for easier regex
+    name: { type: String, required: true, unique: true, trim: true },
   },
   { timestamps: true }
 );
 
-// helpful compound text search
-LocationSchema.index({ name: "text", alt: "text" });
-
-LocationSchema.pre("save", function (next) {
-  this.normalizedName = (this.name || "").toLowerCase();
-  next();
-});
+// টেক্সট ইনডেক্স, দ্রুত সার্চের জন্য
+LocationSchema.index({ name: "text" });
 
 export const Location =
-  mongoose.models.Location || mongoose.model("Location", LocationSchema);
+  mongoose.models.Location ||
+  mongoose.model("Location", LocationSchema, "locations");

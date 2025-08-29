@@ -2,11 +2,11 @@ import mongoose from "mongoose";
 
 const RideSchema = new mongoose.Schema(
   {
-    driverId: { type: String, required: true, index: true }, // Firebase uid
-    from: { type: String, required: true, index: true },
-    to: { type: String, required: true, index: true },
+    driverId: { type: String, required: true, index: true }, // Firebase UID
+    from: { type: String, required: true, trim: true, index: true },
+    to: { type: String, required: true, trim: true, index: true },
     journeyDate: { type: Date, required: true, index: true },
-    returnDate: { type: Date, default: null, index: true },
+    returnDate: { type: Date, default: null },
     category: {
       type: String,
       enum: ["Ambulance", "Car", "Truck"],
@@ -14,10 +14,14 @@ const RideSchema = new mongoose.Schema(
       index: true,
     },
     price: { type: Number, required: true, min: 1 },
-    vehicleModel: { type: String, required: true },
-    totalSeats: { type: Number, required: true, min: 1, max: 50 },
-    availableSeats: { type: Number, required: true, min: 0, max: 50 },
-    imageUrl: { type: String, default: null }, // optional, ImageKit later
+    vehicleModel: { type: String, default: "" },
+    totalSeats: { type: Number, default: 4, min: 1 },
+    availableSeats: { type: Number, default: 4, min: 0 },
+
+    // ✅ Image fields
+    imageUrl: { type: String, default: "" },
+    imageFileId: { type: String, default: "" }, // optional (for delete)
+
     status: {
       type: String,
       enum: ["available", "unavailable"],
@@ -28,6 +32,7 @@ const RideSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-RideSchema.index({ from: 1, to: 1, journeyDate: 1 });
+RideSchema.index({ from: 1, to: 1, journeyDate: -1 });
 
-export const Ride = mongoose.models.Ride || mongoose.model("Ride", RideSchema);
+export const Ride =
+  mongoose.models.Ride || mongoose.model("Ride", RideSchema, "rides");

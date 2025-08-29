@@ -3,51 +3,113 @@ import { Location } from "../models/Location.js";
 
 const router = Router();
 
-function escapeRegex(s = "") {
+// ৬৪ জেলা + বড় শহরগুলোর নাম, fallback হিসেবে
+const BD_LOCATIONS = [
+  // Dhaka division
+  "Dhaka",
+  "Faridpur",
+  "Gazipur",
+  "Gopalganj",
+  "Kishoreganj",
+  "Manikganj",
+  "Munshiganj",
+  "Narayanganj",
+  "Narsingdi",
+  "Rajbari",
+  "Shariatpur",
+  "Tangail",
+  // Chattogram division
+  "Chattogram",
+  "Bandarban",
+  "Brahmanbaria",
+  "Chandpur",
+  "Cumilla",
+  "Cox's Bazar",
+  "Feni",
+  "Khagrachhari",
+  "Lakshmipur",
+  "Noakhali",
+  "Rangamati",
+  // Sylhet division
+  "Sylhet",
+  "Habiganj",
+  "Moulvibazar",
+  "Sunamganj",
+  // Rajshahi division
+  "Rajshahi",
+  "Bogura",
+  "Chapainawabganj",
+  "Joypurhat",
+  "Naogaon",
+  "Natore",
+  "Pabna",
+  "Sirajganj",
+  // Khulna division
+  "Khulna",
+  "Bagerhat",
+  "Chuadanga",
+  "Jashore",
+  "Jhenaidah",
+  "Kushtia",
+  "Magura",
+  "Meherpur",
+  "Narail",
+  "Satkhira",
+  // Barishal division
+  "Barishal",
+  "Barguna",
+  "Bhola",
+  "Jhalokati",
+  "Patuakhali",
+  "Pirojpur",
+  // Rangpur division
+  "Rangpur",
+  "Dinajpur",
+  "Gaibandha",
+  "Kurigram",
+  "Lalmonirhat",
+  "Nilphamari",
+  "Panchagarh",
+  "Thakurgaon",
+  // Mymensingh division
+  "Mymensingh",
+  "Jamalpur",
+  "Netrokona",
+  "Sherpur",
+];
+
+function escRx(s = "") {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/**
- * GET /api/locations/search?q=dh&limit=10
- * - Prefix match priority; fallback to substring
- * - Returns: [{ id, name, division, type }]
- */
-router.get("/search", async (req, res, next) => {
+// GET /api/locations?q=dh&limit=8
+router.get("/", async (req, res, next) => {
   try {
-    const q = (req.query.q || "").trim();
-    const limit = Math.min(parseInt(req.query.limit || "10", 10), 20);
-
+    const q = String(req.query.q || "").trim();
+    const limit = Math.min(
+      50,
+      Math.max(1, parseInt(req.query.limit || "8", 10))
+    );
     if (!q) return res.json({ items: [] });
 
-    const prefix = new RegExp("^" + escapeRegex(q), "i");
-    const substr = new RegExp(escapeRegex(q), "i");
-
-    let items = await Location.find(
-      { $or: [{ name: prefix }, { alt: prefix }] },
-      { name: 1, division: 1, type: 1 }
-    )
-      .sort({ name: 1 })
-      .limit(limit)
-      .lean();
-
-    if (items.length === 0) {
+    let items = [];
+    // যদি কালেকশন ফাঁকা থাকে, fallback ইউজ করবো
+    const hasAny = await Location.estimatedDocumentCount().catch(() => 0);
+    if (hasAny) {
       items = await Location.find(
-        { $or: [{ name: substr }, { alt: substr }] },
-        { name: 1, division: 1, type: 1 }
+        { name: { $regex: new RegExp(escRx(q), "i") } },
+        { _id: 0, name: 1 }
       )
         .sort({ name: 1 })
         .limit(limit)
         .lean();
+      items = items.map((d) => d.name);
+    } else {
+      const rx = new RegExp(escRx(q), "i");
+      items = BD_LOCATIONS.filter((n) => rx.test(n)).slice(0, limit);
     }
 
-    return res.json({
-      items: items.map((d) => ({
-        id: d._id,
-        name: d.name,
-        division: d.division,
-        type: d.type,
-      })),
-    });
+    return res.json({ items });
   } catch (err) {
     next(err);
   }
