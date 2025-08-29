@@ -7,6 +7,7 @@ import authRouter from "./routes/auth.routes.js";
 import locationsRouter from "./routes/locations.routes.js";
 import ridesRouter from "./routes/rides.routes.js";
 import bookingsRouter from "./routes/bookings.routes.js";
+import adminRouter from "./routes/admin.routes.js";
 import { notFound, errorHandler } from "./middlewares/errorHandler.js";
 
 const app = express();
@@ -22,6 +23,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/locations", locationsRouter);
 app.use("/api/rides", ridesRouter);
 app.use("/api/bookings", bookingsRouter);
+app.use("/api/admin", adminRouter); // ✅ NEW
 
 // Fallbacks
 app.use("*", notFound);

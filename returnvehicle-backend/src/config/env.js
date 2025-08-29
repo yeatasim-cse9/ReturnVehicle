@@ -1,10 +1,12 @@
-import dotenv from "dotenv";
-dotenv.config();
+import "dotenv/config";
 
 export const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
   PORT: process.env.PORT || 5000,
-  MONGODB_URI: process.env.MONGODB_URI,
-  DB_NAME: process.env.DB_NAME || "returnvehicle",
   CLIENT_URL: process.env.CLIENT_URL || "http://localhost:5173",
+
+  // ✅ Support both MONGO_URI and MONGODB_URI
+  MONGO_URI: process.env.MONGO_URI || process.env.MONGODB_URI || "",
+
+  // (যদি দরকার হয় ভবিষ্যতে অন্য keys এখানেই রাখবেন)
 };

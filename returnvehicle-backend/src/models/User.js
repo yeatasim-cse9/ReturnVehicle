@@ -12,8 +12,17 @@ const UserSchema = new mongoose.Schema(
       default: "user",
       index: true,
     },
+    // আগের ডকুমেন্টে status নাও থাকতে পারে; ডিফল্ট = 'approved'
+    status: {
+      type: String,
+      enum: ["approved", "blocked"],
+      default: "approved",
+      index: true,
+    },
   },
   { timestamps: true }
 );
 
-export const User = mongoose.models.User || mongoose.model("User", UserSchema);
+// ⚠️ collection নাম 'users' ফিক্স করা হলো যাতে আগের কালেকশনই ব্যবহার হয়
+export const User =
+  mongoose.models.User || mongoose.model("User", UserSchema, "users");
