@@ -1,5 +1,12 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
+import {
+  adminListUsers,
+  adminUpdateUser,
+  adminListRides,
+  adminDeleteRide,
+} from "../services/adminApi";
+import { useAuth } from "../context/AuthContext";
 
 function Spinner({ label = "Loading..." }) {
   return (
@@ -11,129 +18,160 @@ function Spinner({ label = "Loading..." }) {
 }
 
 export default function AdminDashboard() {
+  const { user: me } = useAuth();
+
   const [tab, setTab] = useState("users"); // 'users' | 'rides' | 'reports'
-  const [loading, setLoading] = useState(false);
 
-  // --- Dummy data (backend ready wiring later) ---
-  const [users, setUsers] = useState([
-    // { id:'u1', name:'Akash', email:'a@ex.com', role:'driver', status:'pending'|'approved'|'blocked' }
-  ]);
-  const [rides, setRides] = useState([
-    // { id:'r1', from:'Dhaka', to:'Sylhet', date:'2025-09-01', driver:'u1', status:'available' }
-  ]);
+  // ---- Users state ----
+  const [uLoading, setULoading] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [uPage, setUPage] = useState(1);
+  const [uPages, setUPages] = useState(1);
+  const [uTotal, setUTotal] = useState(0);
+  const [uLimit] = useState(10);
+  const [uQuery, setUQuery] = useState("");
+  const [uRoleFilter, setURoleFilter] = useState("");
+  const [uStatusFilter, setUStatusFilter] = useState("");
+  const [uActingUid, setUActingUid] = useState(null);
 
-  // search/filter
-  const [query, setQuery] = useState("");
+  // ---- Rides state ----
+  const [rLoading, setRLoading] = useState(false);
+  const [rides, setRides] = useState([]);
+  const [rPage, setRPage] = useState(1);
+  const [rPages, setRPages] = useState(1);
+  const [rTotal, setRTotal] = useState(0);
+  const [rLimit] = useState(10);
+  const [rQuery, setRQuery] = useState("");
+  const [rStatusFilter, setRStatusFilter] = useState("");
+  const [rCategoryFilter, setRCategoryFilter] = useState("");
+  const [rActingId, setRActingId] = useState(null);
 
-  // load sample data (mock) to visualize UI
-  const loadSamples = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setUsers([
-        {
-          id: "u1",
-          name: "Akash",
-          email: "akash@example.com",
-          role: "driver",
-          status: "pending",
-        },
-        {
-          id: "u2",
-          name: "Mitu",
-          email: "mitu@example.com",
-          role: "user",
-          status: "approved",
-        },
-        {
-          id: "u3",
-          name: "Admin",
-          email: "admin@example.com",
-          role: "admin",
-          status: "approved",
-        },
-        {
-          id: "u4",
-          name: "Rafi",
-          email: "rafi@example.com",
-          role: "driver",
-          status: "blocked",
-        },
-      ]);
-      setRides([
-        {
-          id: "r1",
-          from: "Dhaka",
-          to: "Chattogram",
-          date: "2025-09-03",
-          driver: "Akash",
-          status: "available",
-          price: 1500,
-        },
-        {
-          id: "r2",
-          from: "Sylhet",
-          to: "Dhaka",
-          date: "2025-09-10",
-          driver: "Akash",
-          status: "unavailable",
-          price: 1400,
-        },
-        {
-          id: "r3",
-          from: "Rajshahi",
-          to: "Khulna",
-          date: "2025-09-05",
-          driver: "Rafi",
-          status: "available",
-          price: 2200,
-        },
-      ]);
-      setLoading(false);
-      toast.success("Loaded sample data");
-    }, 400);
+  // ---- Loaders ----
+  const fetchUsers = async (page = 1) => {
+    setULoading(true);
+    try {
+      const res = await adminListUsers({
+        query: uQuery.trim(),
+        role: uRoleFilter,
+        status: uStatusFilter,
+        page,
+        limit: uLimit,
+      });
+      setUsers(res.items || []);
+      setUPage(res.page);
+      setUPages(res.pages);
+      setUTotal(res.total);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message || err?.message || "Failed to load users"
+      );
+    } finally {
+      setULoading(false);
+    }
   };
 
-  const filteredUsers = useMemo(() => {
-    if (!query.trim()) return users;
-    const q = query.toLowerCase();
-    return users.filter(
-      (u) =>
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        u.role.toLowerCase().includes(q) ||
-        u.status.toLowerCase().includes(q)
-    );
-  }, [users, query]);
+  const fetchRides = async (page = 1) => {
+    setRLoading(true);
+    try {
+      const res = await adminListRides({
+        query: rQuery.trim(),
+        status: rStatusFilter,
+        category: rCategoryFilter,
+        page,
+        limit: rLimit,
+      });
+      setRides(res.items || []);
+      setRPage(res.page);
+      setRPages(res.pages);
+      setRTotal(res.total);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message || err?.message || "Failed to load rides"
+      );
+    } finally {
+      setRLoading(false);
+    }
+  };
 
-  const filteredRides = useMemo(() => {
-    if (!query.trim()) return rides;
-    const q = query.toLowerCase();
-    return rides.filter(
-      (r) =>
-        r.from.toLowerCase().includes(q) ||
-        r.to.toLowerCase().includes(q) ||
-        r.driver.toLowerCase().includes(q) ||
-        r.status.toLowerCase().includes(q)
-    );
-  }, [rides, query]);
+  useEffect(() => {
+    if (tab === "users") fetchUsers(1);
+  }, [tab]);
 
-  // --- Admin actions (frontend-only now) ---
-  const approveUser = (id) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, status: "approved" } : u))
-    );
-    toast.success("User approved (mock)");
+  useEffect(() => {
+    if (tab === "rides") fetchRides(1);
+  }, [tab]);
+
+  // ---- Users actions ----
+  const onApprove = async (uid) => {
+    try {
+      setUActingUid(uid);
+      const updated = await adminUpdateUser(uid, { status: "approved" });
+      setUsers((prev) =>
+        prev.map((u) => (u.uid === uid ? { ...u, status: updated.status } : u))
+      );
+      toast.success("User approved");
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message || err?.message || "Approve failed"
+      );
+    } finally {
+      setUActingUid(null);
+    }
   };
-  const blockUser = (id) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, status: "blocked" } : u))
-    );
-    toast.success("User blocked (mock)");
+
+  const onBlock = async (uid) => {
+    try {
+      setUActingUid(uid);
+      const updated = await adminUpdateUser(uid, { status: "blocked" });
+      setUsers((prev) =>
+        prev.map((u) => (u.uid === uid ? { ...u, status: updated.status } : u))
+      );
+      toast.success("User blocked");
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message || err?.message || "Block failed"
+      );
+    } finally {
+      setUActingUid(null);
+    }
   };
-  const deleteRide = (id) => {
-    setRides((prev) => prev.filter((r) => r.id !== id));
-    toast.success("Ride deleted (mock)");
+
+  const onChangeRole = async (uid, role) => {
+    try {
+      setUActingUid(uid);
+      const updated = await adminUpdateUser(uid, { role });
+      setUsers((prev) =>
+        prev.map((u) => (u.uid === uid ? { ...u, role: updated.role } : u))
+      );
+      toast.success("Role updated");
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message || err?.message || "Role update failed"
+      );
+    } finally {
+      setUActingUid(null);
+    }
   };
+
+  // ---- Rides actions ----
+  const onDeleteRide = async (id) => {
+    if (!window.confirm("Delete this ride?")) return;
+    try {
+      setRActingId(id);
+      await adminDeleteRide(id);
+      setRides((prev) => prev.filter((r) => r._id !== id && r.id !== id));
+      toast.success("Ride deleted");
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message || err?.message || "Delete failed"
+      );
+    } finally {
+      setRActingId(null);
+    }
+  };
+
+  // ---- Derived ----
+  const myUid = me?.uid || me?.uid; // keep for clarity
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -145,22 +183,80 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search users/rides"
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
-          />
-          <button
-            type="button"
-            onClick={loadSamples}
-            className="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90"
-          >
-            Load samples
-          </button>
-        </div>
+        {/* Search & filters (contextual per tab) */}
+        {tab === "users" ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={uQuery}
+              onChange={(e) => setUQuery(e.target.value)}
+              placeholder="Search users"
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            />
+            <select
+              value={uRoleFilter}
+              onChange={(e) => setURoleFilter(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            >
+              <option value="">All roles</option>
+              <option value="user">user</option>
+              <option value="driver">driver</option>
+              <option value="admin">admin</option>
+            </select>
+            <select
+              value={uStatusFilter}
+              onChange={(e) => setUStatusFilter(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            >
+              <option value="">All status</option>
+              <option value="approved">approved</option>
+              <option value="blocked">blocked</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => fetchUsers(1)}
+              className="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90"
+            >
+              Search
+            </button>
+          </div>
+        ) : tab === "rides" ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={rQuery}
+              onChange={(e) => setRQuery(e.target.value)}
+              placeholder="Search rides"
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            />
+            <select
+              value={rStatusFilter}
+              onChange={(e) => setRStatusFilter(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            >
+              <option value="">All status</option>
+              <option value="available">available</option>
+              <option value="unavailable">unavailable</option>
+            </select>
+            <select
+              value={rCategoryFilter}
+              onChange={(e) => setRCategoryFilter(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            >
+              <option value="">All categories</option>
+              <option value="Ambulance">Ambulance</option>
+              <option value="Car">Car</option>
+              <option value="Truck">Truck</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => fetchRides(1)}
+              className="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90"
+            >
+              Search
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* Tabs */}
@@ -200,16 +296,25 @@ export default function AdminDashboard() {
       </div>
 
       <section className="rounded-b-2xl border border-t-0 border-slate-200 bg-white p-5">
-        {loading ? (
-          <Spinner />
-        ) : tab === "users" ? (
+        {tab === "users" ? (
           <>
-            {filteredUsers.length === 0 ? (
-              <p className="text-slate-700">
-                No users found. Click “Load samples” to preview UI.
-              </p>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Users</h3>
+              {uLoading ? (
+                <Spinner />
+              ) : (
+                <span className="text-sm text-slate-600">{uTotal} total</span>
+              )}
+            </div>
+
+            {uLoading ? (
+              <div className="mt-4">
+                <Spinner label="Loading users..." />
+              </div>
+            ) : users.length === 0 ? (
+              <p className="mt-2 text-slate-700">No users found.</p>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
                 <table className="min-w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr className="text-left text-slate-700">
@@ -221,29 +326,46 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map((u) => (
-                      <tr key={u.id} className="border-t border-slate-200">
-                        <td className="px-4 py-3 text-slate-900">{u.name}</td>
-                        <td className="px-4 py-3 text-slate-700 break-all">
-                          {u.email}
+                    {users.map((u) => (
+                      <tr key={u.uid} className="border-t border-slate-200">
+                        <td className="px-4 py-3 text-slate-900">
+                          {u.displayName || "—"}
                         </td>
-                        <td className="px-4 py-3 text-slate-700">{u.role}</td>
+                        <td className="px-4 py-3 text-slate-700 break-all">
+                          {u.email || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          <select
+                            className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-slate-900"
+                            value={u.role}
+                            onChange={(e) =>
+                              onChangeRole(u.uid, e.target.value)
+                            }
+                            disabled={uActingUid === u.uid || u.uid === myUid} // নিজের রোল না পাল্টাই
+                          >
+                            <option value="user">user</option>
+                            <option value="driver">driver</option>
+                            <option value="admin">admin</option>
+                          </select>
+                        </td>
                         <td className="px-4 py-3">
                           <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
-                            {u.status}
+                            {u.status || "approved"}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="inline-flex gap-2">
                             <button
-                              onClick={() => approveUser(u.id)}
-                              className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                              onClick={() => onApprove(u.uid)}
+                              disabled={uActingUid === u.uid}
+                              className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50 disabled:opacity-60"
                             >
                               Approve
                             </button>
                             <button
-                              onClick={() => blockUser(u.id)}
-                              className="px-3 py-1.5 rounded-xl bg-slate-900 text-white hover:opacity-90"
+                              onClick={() => onBlock(u.uid)}
+                              disabled={uActingUid === u.uid || u.uid === myUid}
+                              className="px-3 py-1.5 rounded-xl bg-slate-900 text-white hover:opacity-90 disabled:opacity-60"
                             >
                               Block
                             </button>
@@ -255,36 +377,86 @@ export default function AdminDashboard() {
                 </table>
               </div>
             )}
+
+            {/* Users pagination */}
+            {!uLoading && uPages > 1 && (
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <button
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 disabled:opacity-60"
+                  onClick={() => fetchUsers(uPage - 1)}
+                  disabled={uPage <= 1}
+                >
+                  Prev
+                </button>
+                <span className="text-sm text-slate-700">
+                  Page <strong className="text-slate-900">{uPage}</strong> of{" "}
+                  {uPages}
+                </span>
+                <button
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 disabled:opacity-60"
+                  onClick={() => fetchUsers(uPage + 1)}
+                  disabled={uPage >= uPages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </>
         ) : tab === "rides" ? (
           <>
-            {filteredRides.length === 0 ? (
-              <p className="text-slate-700">
-                No rides found. Click “Load samples” to preview UI.
-              </p>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Rides</h3>
+              {rLoading ? (
+                <Spinner />
+              ) : (
+                <span className="text-sm text-slate-600">{rTotal} total</span>
+              )}
+            </div>
+
+            {rLoading ? (
+              <div className="mt-4">
+                <Spinner label="Loading rides..." />
+              </div>
+            ) : rides.length === 0 ? (
+              <p className="mt-2 text-slate-700">No rides found.</p>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
                 <table className="min-w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr className="text-left text-slate-700">
                       <th className="px-4 py-3">Route</th>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Driver</th>
+                      <th className="px-4 py-3">Journey</th>
+                      <th className="px-4 py-3">Vehicle</th>
                       <th className="px-4 py-3">Price</th>
+                      <th className="px-4 py-3">Category</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRides.map((r) => (
-                      <tr key={r.id} className="border-t border-slate-200">
+                    {rides.map((r) => (
+                      <tr key={r._id} className="border-t border-slate-200">
                         <td className="px-4 py-3 text-slate-900">
                           {r.from} → {r.to}
                         </td>
-                        <td className="px-4 py-3 text-slate-700">{r.date}</td>
-                        <td className="px-4 py-3 text-slate-700">{r.driver}</td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {r.journeyDate
+                            ? new Date(r.journeyDate).toISOString().slice(0, 10)
+                            : "—"}
+                          {r.returnDate
+                            ? ` • ${new Date(r.returnDate)
+                                .toISOString()
+                                .slice(0, 10)}`
+                            : ""}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {r.vehicleModel || "—"}
+                        </td>
                         <td className="px-4 py-3 text-slate-900 font-medium">
                           ৳ {r.price}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {r.category}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
@@ -293,10 +465,11 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button
-                            onClick={() => deleteRide(r.id)}
-                            className="px-3 py-1.5 rounded-xl bg-slate-900 text-white hover:opacity-90"
+                            onClick={() => onDeleteRide(r._id)}
+                            disabled={rActingId === r._id}
+                            className="px-3 py-1.5 rounded-xl bg-slate-900 text-white hover:opacity-90 disabled:opacity-60"
                           >
-                            Delete
+                            {rActingId === r._id ? "Deleting…" : "Delete"}
                           </button>
                         </td>
                       </tr>
@@ -305,40 +478,74 @@ export default function AdminDashboard() {
                 </table>
               </div>
             )}
+
+            {/* Rides pagination */}
+            {!rLoading && rPages > 1 && (
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <button
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 disabled:opacity-60"
+                  onClick={() => fetchRides(rPage - 1)}
+                  disabled={rPage <= 1}
+                >
+                  Prev
+                </button>
+                <span className="text-sm text-slate-700">
+                  Page <strong className="text-slate-900">{rPage}</strong> of{" "}
+                  {rPages}
+                </span>
+                <button
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 disabled:opacity-60"
+                  onClick={() => fetchRides(rPage + 1)}
+                  disabled={rPage >= rPages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </>
         ) : (
-          // Reports tab (placeholder widgets)
+          // Reports (simple placeholders)
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <h4 className="text-base font-semibold text-slate-900">
-                Total Users
+                Users (page)
               </h4>
-              <p className="mt-2 text-3xl font-bold text-slate-900">
-                {users.length}
-              </p>
-              <p className="text-xs text-slate-600 mt-1">Sample only</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">{uTotal}</p>
+              <p className="text-xs text-slate-600 mt-1">Loaded via API</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <h4 className="text-base font-semibold text-slate-900">
-                Total Rides
+                Rides (page)
               </h4>
-              <p className="mt-2 text-3xl font-bold text-slate-900">
-                {rides.length}
-              </p>
-              <p className="text-xs text-slate-600 mt-1">Sample only</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">{rTotal}</p>
+              <p className="text-xs text-slate-600 mt-1">Loaded via API</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <h4 className="text-base font-semibold text-slate-900">
-                Pending Drivers
+                Quick Actions
               </h4>
-              <p className="mt-2 text-3xl font-bold text-slate-900">
-                {
-                  users.filter(
-                    (u) => u.role === "driver" && u.status === "pending"
-                  ).length
-                }
-              </p>
-              <p className="text-xs text-slate-600 mt-1">Sample only</p>
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (tab !== "users") setTab("users");
+                    fetchUsers(1);
+                  }}
+                  className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                >
+                  Refresh Users
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (tab !== "rides") setTab("rides");
+                    fetchRides(1);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90"
+                >
+                  Refresh Rides
+                </button>
+              </div>
             </div>
           </div>
         )}
