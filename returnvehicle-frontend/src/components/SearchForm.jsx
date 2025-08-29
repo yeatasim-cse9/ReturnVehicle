@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AutocompleteInput from "./AutocompleteInput";
-import { BD_LOCATIONS } from "../constants/locations";
 
 export default function SearchForm({ compact = false }) {
   const navigate = useNavigate();
@@ -31,7 +30,6 @@ export default function SearchForm({ compact = false }) {
   const onSubmit = (e) => {
     e.preventDefault();
     if (!canSubmit) return;
-
     const params = new URLSearchParams({
       from: form.from,
       to: form.to,
@@ -56,7 +54,6 @@ export default function SearchForm({ compact = false }) {
           name="from"
           value={form.from}
           onChange={(v) => handleChange("from", v)}
-          locations={BD_LOCATIONS}
           placeholder="e.g., Dhaka"
         />
         <AutocompleteInput
@@ -64,8 +61,7 @@ export default function SearchForm({ compact = false }) {
           name="to"
           value={form.to}
           onChange={(v) => handleChange("to", v)}
-          locations={BD_LOCATIONS}
-          placeholder="e.g., Chittagong"
+          placeholder="e.g., Chattogram"
         />
 
         <div>

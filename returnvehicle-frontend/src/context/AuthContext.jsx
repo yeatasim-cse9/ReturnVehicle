@@ -7,46 +7,57 @@ import {
   signOut,
   signInWithPopup,
 } from "firebase/auth";
+import api from "../lib/api";
+import { toast } from "react-hot-toast";
 
 const AuthContext = createContext(null);
 
-// ---- TEMP ROLE STORAGE (frontend-only) ----
-// পরে MongoDB/API থেকে আসল role আনবো।
-// key: 'rv_role' | allowed: 'user' | 'driver' | 'admin'
-function getStoredRole() {
-  const r = localStorage.getItem("rv_role");
-  return r || "user";
-}
-function setStoredRole(role) {
-  localStorage.setItem("rv_role", role);
-}
-
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null); // firebase user
+  const [loading, setLoading] = useState(true); // firebase init/loading
 
-  // role states
-  const [role, setRole] = useState(getStoredRole());
+  const [role, setRole] = useState(null); // backend role: 'user' | 'driver' | 'admin'
   const [roleLoading, setRoleLoading] = useState(false);
 
+  // --- Firebase auth state watcher ---
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u || null);
       setLoading(false);
-      // লগইন হলে ভবিষ্যতে API দিয়ে রোল ফেচ করবো।
-      // এখন টেম্পোরারি localStorage role ব্যবহার করছি।
+
+      if (u) {
+        await syncWhoAmI(); // লগইন হলে রোল সিঙ্ক
+      } else {
+        setRole(null);
+      }
     });
     return () => unsub();
   }, []);
 
-  // role setter (temp)
-  const updateRole = (nextRole) => {
+  // --- Sync role from backend ---
+  const syncWhoAmI = async () => {
+    if (!auth.currentUser) {
+      setRole(null);
+      return;
+    }
     setRoleLoading(true);
-    setStoredRole(nextRole);
-    setRole(nextRole);
-    setRoleLoading(false);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await api.get("/api/auth/whoami", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const backendRole = res?.data?.user?.role || "user";
+      setRole(backendRole);
+    } catch (err) {
+      console.error("whoami error:", err?.response?.data || err?.message);
+      toast.error("Could not verify session");
+      setRole(null);
+    } finally {
+      setRoleLoading(false);
+    }
   };
 
+  // --- Auth actions ---
   const loginEmail = (email, password) =>
     signInWithEmailAndPassword(auth, email, password);
   const registerEmail = (email, password) =>
@@ -54,6 +65,7 @@ export function AuthProvider({ children }) {
   const loginGoogle = (provider) => signInWithPopup(auth, provider);
   const logout = async () => {
     await signOut(auth);
+    setRole(null);
   };
 
   const value = {
@@ -61,7 +73,7 @@ export function AuthProvider({ children }) {
     loading,
     role,
     roleLoading,
-    updateRole, // TEMP: dev helper
+    syncWhoAmI, // চাইলে ম্যানুয়াল রিফ্রেশও করা যাবে
     loginEmail,
     registerEmail,
     loginGoogle,

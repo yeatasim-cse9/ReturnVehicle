@@ -1,12 +1,35 @@
 import React from "react";
 import { useAuth } from "../context/AuthContext";
 import { googleProvider } from "../lib/firebase";
+import { setUserRole } from "../services/authApi";
+import { toast } from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
-export default function GoogleButton({ label = "Continue with Google" }) {
-  const { loginGoogle } = useAuth();
+export default function GoogleButton({
+  label = "Continue with Google",
+  selectedRole = "user",
+}) {
+  const { loginGoogle, syncWhoAmI } = useAuth();
+  const navigate = useNavigate();
 
   const handleGoogle = async () => {
-    await loginGoogle(googleProvider);
+    try {
+      // 1) Firebase popup
+      await loginGoogle(googleProvider);
+      // 2) Backend role set (user/driver)
+      await setUserRole(selectedRole);
+      await syncWhoAmI();
+
+      toast.success(`Signed in as ${selectedRole}`);
+
+      if (selectedRole === "driver") navigate("/driver/dashboard");
+      else navigate("/user/dashboard");
+    } catch (err) {
+      console.error(err);
+      toast.error(
+        err?.response?.data?.message || err?.message || "Google sign-in failed"
+      );
+    }
   };
 
   return (

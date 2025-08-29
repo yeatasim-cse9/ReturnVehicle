@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import GoogleButton from "../components/GoogleButton";
 import { toast } from "react-hot-toast";
 import { useNavigate, Link } from "react-router-dom";
+import { fetchWhoAmI } from "../services/authApi";
 
 export default function Login() {
   const { loginEmail } = useAuth();
@@ -17,8 +18,12 @@ export default function Login() {
     setLoading(true);
     try {
       await loginEmail(form.email, form.password);
+      const u = await fetchWhoAmI();
       toast.success("Logged in");
-      navigate("/user/dashboard");
+
+      if (u?.role === "driver") navigate("/driver/dashboard");
+      else if (u?.role === "admin") navigate("/admin/dashboard");
+      else navigate("/user/dashboard");
     } catch (err) {
       toast.error(err?.message || "Login failed");
     } finally {
@@ -74,7 +79,8 @@ export default function Login() {
           </button>
         </form>
 
-        <GoogleButton />
+        {/* Google here defaults to 'user' login (role change নয়) */}
+        <GoogleButton label="Continue with Google" selectedRole="user" />
 
         <p className="mt-4 text-sm text-slate-600">
           Don’t have an account?{" "}

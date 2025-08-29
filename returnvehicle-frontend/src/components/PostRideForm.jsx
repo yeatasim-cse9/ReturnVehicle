@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import AutocompleteInput from "./AutocompleteInput";
-import { BD_LOCATIONS } from "../constants/locations";
 import { toast } from "react-hot-toast";
+import { postRide } from "../services/ridesApi";
 
 /**
  * props:
@@ -23,6 +23,7 @@ export default function PostRideForm({ onCreate }) {
     imageFile: null,
     imagePreview: null,
   });
+  const [submitting, setSubmitting] = useState(false);
 
   const canSubmit = useMemo(() => {
     if (!form.from || !form.to || !form.journeyDate || !form.category)
@@ -35,14 +36,11 @@ export default function PostRideForm({ onCreate }) {
       Number(form.availableSeats) > Number(form.totalSeats)
     )
       return false;
-    // return date constraint (optional)
     if (form.returnDate && form.returnDate < form.journeyDate) return false;
     return true;
   }, [form]);
 
-  const handleChange = (key, val) => {
-    setForm((p) => ({ ...p, [key]: val }));
-  };
+  const handleChange = (key, val) => setForm((p) => ({ ...p, [key]: val }));
 
   const onImage = (e) => {
     const file = e.target.files?.[0];
@@ -70,13 +68,11 @@ export default function PostRideForm({ onCreate }) {
     });
   };
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || submitting) return;
 
-    // Simple client object (backend হলে MongoDB-তে যাবে)
-    const ride = {
-      id: crypto.randomUUID(),
+    const payload = {
       from: form.from,
       to: form.to,
       journeyDate: form.journeyDate,
@@ -86,15 +82,22 @@ export default function PostRideForm({ onCreate }) {
       vehicleModel: form.vehicleModel,
       totalSeats: Number(form.totalSeats),
       availableSeats: Number(form.availableSeats),
-      // Image এখন শুধু preview URL; পরে ImageKit-এ আপলোড করে URL রাখবো
-      imageUrl: form.imagePreview || null,
-      status: "available",
-      createdAt: new Date().toISOString(),
+      imageUrl: null, // ImageKit later
     };
 
-    onCreate?.(ride);
-    toast.success("Ride posted");
-    reset();
+    try {
+      setSubmitting(true);
+      const created = await postRide(payload);
+      toast.success("Ride posted");
+      onCreate?.(created); // backend থেকে ফেরত আসা রাইড parent list-এ দিন
+      reset();
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message || err?.message || "Failed to post ride";
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -113,7 +116,6 @@ export default function PostRideForm({ onCreate }) {
           name="from"
           value={form.from}
           onChange={(v) => handleChange("from", v)}
-          locations={BD_LOCATIONS}
           placeholder="e.g., Dhaka"
         />
         <AutocompleteInput
@@ -121,8 +123,7 @@ export default function PostRideForm({ onCreate }) {
           name="to"
           value={form.to}
           onChange={(v) => handleChange("to", v)}
-          locations={BD_LOCATIONS}
-          placeholder="e.g., Chittagong"
+          placeholder="e.g., Chattogram"
         />
 
         <div>
@@ -203,7 +204,7 @@ export default function PostRideForm({ onCreate }) {
           <input
             type="number"
             min={1}
-            max={10}
+            max={50}
             value={form.totalSeats}
             onChange={(e) => handleChange("totalSeats", e.target.value)}
             className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
@@ -217,7 +218,7 @@ export default function PostRideForm({ onCreate }) {
           <input
             type="number"
             min={0}
-            max={form.totalSeats || 10}
+            max={form.totalSeats || 50}
             value={form.availableSeats}
             onChange={(e) => handleChange("availableSeats", e.target.value)}
             className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
@@ -259,10 +260,10 @@ export default function PostRideForm({ onCreate }) {
         </button>
         <button
           type="submit"
-          disabled={!canSubmit}
+          disabled={!canSubmit || submitting}
           className="px-5 py-2.5 rounded-xl bg-slate-900 text-white hover:opacity-90 disabled:opacity-60"
         >
-          Post Ride
+          {submitting ? "Posting…" : "Post Ride"}
         </button>
       </div>
     </form>

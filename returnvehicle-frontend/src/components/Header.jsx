@@ -9,7 +9,7 @@ const navLinkClass = ({ isActive }) =>
   }`;
 
 export default function Header() {
-  const { user, logout, role, updateRole } = useAuth();
+  const { user, logout, role } = useAuth();
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-200">
@@ -33,7 +33,6 @@ export default function Header() {
             Contact
           </NavLink>
 
-          {/* ড্যাশবোর্ড শর্টকাট (role অনুযায়ী) */}
           {user && (
             <>
               {role === "user" && (
@@ -58,22 +57,11 @@ export default function Header() {
         <div className="flex items-center gap-2">
           {user ? (
             <>
-              {/* TEMP: Dev-only role switcher (frontend) */}
-              <select
-                aria-label="Role"
-                className="hidden sm:block rounded-xl border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900"
-                value={role}
-                onChange={(e) => updateRole(e.target.value)}
-              >
-                <option value="user">user</option>
-                <option value="driver">driver</option>
-                <option value="admin">admin</option>
-              </select>
-
-              <span className="hidden sm:inline-block text-xs px-2 py-1 rounded-lg bg-slate-200 text-slate-800">
-                {role}
-              </span>
-
+              {role && (
+                <span className="hidden sm:inline-block text-xs px-2 py-1 rounded-lg bg-slate-200 text-slate-800">
+                  {role}
+                </span>
+              )}
               <button
                 onClick={logout}
                 className="px-3 py-2 rounded-xl text-sm font-medium text-white bg-slate-900 hover:opacity-90"
