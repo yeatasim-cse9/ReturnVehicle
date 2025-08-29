@@ -1,63 +1,70 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import MainLayout from "./layouts/MainLayout";
-import { AuthProvider } from "./context/AuthContext";
-import { ProtectedRoute, RoleRoute } from "./routes/guards";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
 
-// Pages
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import Search from "./pages/Search";
-import Booking from "./pages/Booking";
+import SearchPage from "./pages/Search";
+import BookingPage from "./pages/Booking";
+
 import UserDashboard from "./pages/UserDashboard";
 import DriverDashboard from "./pages/DriverDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
-import ProfileEdit from "./pages/ProfileEdit";
+
 import About from "./pages/About";
 import Contact from "./pages/Contact";
-import NotFound from "./pages/NotFound";
+import ProfileEdit from "./pages/ProfileEdit";
 import Unauthorized from "./pages/Unauthorized";
+import NotFound from "./pages/NotFound";
+
+import { ProtectedRoute, RoleRoute } from "./routes/guards";
+import { Toaster } from "react-hot-toast";
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<MainLayout />}>
-            {/* Public */}
+    <BrowserRouter>
+      <div className="min-h-screen flex flex-col bg-white text-slate-900">
+        <Header />
+        <main className="flex-1">
+          <Routes>
+            {/* Public routes */}
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/booking/:id" element={<Booking />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/booking/:id" element={<BookingPage />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/unauthorized" element={<Unauthorized />} />
 
-            {/* Auth required (any role) */}
+            {/* Protected routes (must be authenticated) */}
             <Route element={<ProtectedRoute />}>
+              {/* Role-based gates */}
+              <Route element={<RoleRoute allow={["user"]} />}>
+                <Route path="/user/dashboard" element={<UserDashboard />} />
+              </Route>
+
+              <Route element={<RoleRoute allow={["driver"]} />}>
+                <Route path="/driver/dashboard" element={<DriverDashboard />} />
+              </Route>
+
+              <Route element={<RoleRoute allow={["admin"]} />}>
+                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              </Route>
+
+              {/* Shared protected route */}
               <Route path="/profile/edit" element={<ProfileEdit />} />
             </Route>
 
-            {/* Role-based */}
-            <Route element={<RoleRoute allow={["user"]} />}>
-              <Route path="/user/dashboard" element={<UserDashboard />} />
-            </Route>
-
-            <Route element={<RoleRoute allow={["driver"]} />}>
-              <Route path="/driver/dashboard" element={<DriverDashboard />} />
-            </Route>
-
-            <Route element={<RoleRoute allow={["admin"]} />}>
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            </Route>
-
-            {/* 404 */}
+            {/* Fallbacks */}
+            <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+          </Routes>
+        </main>
+        <Footer />
+        <Toaster position="top-right" />
+      </div>
+    </BrowserRouter>
   );
 }

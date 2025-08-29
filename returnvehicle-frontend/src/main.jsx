@@ -2,11 +2,14 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import "./index.css";
-import { Toaster } from "react-hot-toast";
+
+// ✅ AuthProvider দিয়ে পুরো অ্যাপ র‍্যাপ করুন
+import { AuthProvider } from "./context/AuthContext.jsx";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
-    <Toaster position="top-center" />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>
 );
