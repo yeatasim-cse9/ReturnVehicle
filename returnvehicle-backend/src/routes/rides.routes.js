@@ -20,9 +20,8 @@ function escapeRegex(s = "") {
 
 // ---------- PUBLIC SEARCH ----------
 // GET /api/rides/search?q params:
-// from, to, journeyDate(YYYY-MM-DD), returnDate(YYYY-MM-DD, optional), category, passengers, priceMin, priceMax,
-// sort: date_asc|date_desc|price_asc|price_desc
-// page, limit
+// from, to, journeyDate(YYYY-MM-DD), returnDate(optional), category, passengers,
+// priceMin, priceMax, sort: date_asc|date_desc|price_asc|price_desc, page, limit
 router.get("/search", async (req, res, next) => {
   try {
     const {
@@ -46,12 +45,10 @@ router.get("/search", async (req, res, next) => {
 
     const filter = { status: "available" };
 
-    if (from.trim()) {
+    if (from.trim())
       filter.from = { $regex: new RegExp(escapeRegex(from.trim()), "i") };
-    }
-    if (to.trim()) {
+    if (to.trim())
       filter.to = { $regex: new RegExp(escapeRegex(to.trim()), "i") };
-    }
 
     if (journeyDate) {
       if (!isISODate(journeyDate))
@@ -68,7 +65,6 @@ router.get("/search", async (req, res, next) => {
       const rs = new Date(returnDate);
       const re = new Date(rs);
       re.setDate(re.getDate() + 1);
-      // rides that exactly plan a return date that day (optional field)
       filter.returnDate = { $gte: rs, $lt: re };
     }
 
@@ -113,21 +109,6 @@ router.get("/search", async (req, res, next) => {
   }
 });
 
-// ---------- PUBLIC: GET ONE (for booking page) ----------
-// GET /api/rides/:id
-router.get("/:id", async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    if (!isValidObjectId(id))
-      return res.status(400).json({ message: "Invalid ride id" });
-    const ride = await Ride.findById(id).lean();
-    if (!ride) return res.status(404).json({ message: "Ride not found" });
-    return res.json({ ride });
-  } catch (err) {
-    next(err);
-  }
-});
-
 // ---------- DRIVER: CREATE ----------
 router.post("/", requireAuth, requireRole("driver"), async (req, res, next) => {
   try {
@@ -144,7 +125,6 @@ router.post("/", requireAuth, requireRole("driver"), async (req, res, next) => {
       imageUrl,
     } = req.body || {};
 
-    // validations
     if (!from || !to)
       return res.status(400).json({ message: "From/To required" });
     if (!journeyDate || !isISODate(journeyDate))
@@ -257,11 +237,8 @@ router.patch(
         "status",
       ];
       const data = {};
-      for (const k of allowed) {
-        if (k in req.body) data[k] = req.body[k];
-      }
+      for (const k of allowed) if (k in req.body) data[k] = req.body[k];
 
-      // validations for present fields
       if ("from" in data && !data.from)
         return res.status(400).json({ message: "From required" });
       if ("to" in data && !data.to)
@@ -299,7 +276,6 @@ router.patch(
       )
         return res.status(400).json({ message: "Invalid status" });
 
-      // date conversions
       if ("journeyDate" in data) data.journeyDate = new Date(data.journeyDate);
       if ("returnDate" in data)
         data.returnDate = data.returnDate ? new Date(data.returnDate) : null;
@@ -352,5 +328,20 @@ router.delete(
     }
   }
 );
+
+// ---------- PUBLIC: GET ONE (KEEP THIS LAST!) ----------
+// GET /api/rides/:id
+router.get("/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id))
+      return res.status(400).json({ message: "Invalid ride id" });
+    const ride = await Ride.findById(id).lean();
+    if (!ride) return res.status(404).json({ message: "Ride not found" });
+    return res.json({ ride });
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;

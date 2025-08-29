@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import PostRideForm from "../components/PostRideForm";
 import { getMyRides, deleteRide, updateRide } from "../services/ridesApi";
+import { getDriverBookings } from "../services/bookingsApi";
 import { toast } from "react-hot-toast";
 
 function Spinner({ label = "Loading..." }) {
@@ -21,6 +22,9 @@ function formatDate(d) {
 }
 
 export default function DriverDashboard() {
+  const [tab, setTab] = useState("rides"); // 'rides' | 'bookings'
+
+  // ---- Rides state ----
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pageInfo, setPageInfo] = useState({
@@ -39,6 +43,17 @@ export default function DriverDashboard() {
   });
   const [acting, setActing] = useState(false);
 
+  // ---- Bookings state (driver) ----
+  const [bkLoading, setBkLoading] = useState(false);
+  const [bk, setBk] = useState({
+    items: [],
+    page: 1,
+    pages: 1,
+    total: 0,
+    limit: 10,
+  });
+
+  // Load rides
   const fetchRides = async (page = 1) => {
     setLoading(true);
     try {
@@ -59,9 +74,30 @@ export default function DriverDashboard() {
     }
   };
 
+  // Load driver bookings
+  const fetchBookings = async (page = 1) => {
+    setBkLoading(true);
+    try {
+      const data = await getDriverBookings(page, 10);
+      setBk(data);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load bookings"
+      );
+    } finally {
+      setBkLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchRides(1);
   }, []);
+
+  useEffect(() => {
+    if (tab === "bookings") fetchBookings(1);
+  }, [tab]);
 
   const onCreate = (ride) => {
     setRides((prev) => [ride, ...prev]);
@@ -143,205 +179,362 @@ export default function DriverDashboard() {
     }
   };
 
+  // Pagination handlers
+  const goRidePage = (p) => {
+    const page = Math.max(1, Math.min(pageInfo.pages, p));
+    fetchRides(page);
+  };
+  const goBookingPage = (p) => {
+    const page = Math.max(1, Math.min(bk.pages, p));
+    fetchBookings(page);
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <h2 className="text-2xl font-bold text-slate-900">Driver Dashboard</h2>
       <p className="mt-2 text-slate-600">
-        Post new rides, manage your listings and requests.
+        Post new rides, manage your listings, and view bookings for your rides.
       </p>
 
+      {/* Post Ride */}
       <div className="mt-6">
         <PostRideForm onCreate={onCreate} />
       </div>
 
-      <section className="mt-8">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-900">My Rides</h3>
-          {loading ? (
-            <Spinner />
-          ) : (
-            <span className="text-sm text-slate-600">
-              {pageInfo.total} total
-            </span>
-          )}
-        </div>
+      {/* Tabs */}
+      <div className="mt-8 border-b border-slate-200">
+        <nav className="flex gap-2">
+          <button
+            className={`px-4 py-2 rounded-t-xl ${
+              tab === "rides"
+                ? "bg-white border border-b-0 border-slate-200 text-slate-900"
+                : "bg-slate-50 text-slate-700"
+            }`}
+            onClick={() => setTab("rides")}
+          >
+            My Rides
+          </button>
+          <button
+            className={`px-4 py-2 rounded-t-xl ${
+              tab === "bookings"
+                ? "bg-white border border-b-0 border-slate-200 text-slate-900"
+                : "bg-slate-50 text-slate-700"
+            }`}
+            onClick={() => setTab("bookings")}
+          >
+            Bookings
+          </button>
+        </nav>
+      </div>
 
-        {loading ? (
-          <div className="mt-4">
-            <Spinner label="Loading rides..." />
+      {/* Panels */}
+      {tab === "rides" ? (
+        <section className="rounded-b-2xl border border-t-0 border-slate-200 bg-white p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-slate-900">My Rides</h3>
+            {loading ? (
+              <Spinner />
+            ) : (
+              <span className="text-sm text-slate-600">
+                {pageInfo.total} total
+              </span>
+            )}
           </div>
-        ) : rides.length === 0 ? (
-          <p className="mt-2 text-slate-600">
-            No rides yet. Post your first ride above.
-          </p>
-        ) : (
-          <ul className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {rides.map((r) => (
-              <li
-                key={r._id}
-                className="rounded-2xl border border-slate-200 bg-white p-5"
-              >
-                <div className="flex items-start justify-between">
-                  <h4 className="text-lg font-semibold text-slate-900">
-                    {r.from} → {r.to}
-                  </h4>
-                  <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
-                    {r.category}
-                  </span>
-                </div>
-                <p className="mt-1 text-slate-600 text-sm">
-                  Journey: {formatDate(r.journeyDate)}
-                  {r.returnDate ? ` • Return: ${formatDate(r.returnDate)}` : ""}
-                </p>
-                <p className="mt-1 text-slate-600 text-sm">
-                  Vehicle: {r.vehicleModel} • Seats: {r.availableSeats}/
-                  {r.totalSeats}
-                </p>
-                <div className="mt-3 flex items-center justify-between">
-                  <p className="text-slate-900 font-semibold">৳ {r.price}</p>
-                  <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
-                    {r.status}
-                  </span>
-                </div>
-                {r.imageUrl && (
-                  <img
-                    src={r.imageUrl}
-                    alt="vehicle"
-                    className="mt-3 h-36 w-full rounded-xl object-cover border border-slate-200"
-                  />
-                )}
 
-                {/* Actions */}
-                <div className="mt-4 flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
-                    onClick={() => startEdit(r)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 disabled:opacity-60"
-                    onClick={() => onDelete(r._id)}
-                    disabled={acting}
-                  >
-                    Delete
-                  </button>
-                </div>
-
-                {/* Inline edit panel */}
-                {editingId === r._id && (
-                  <div className="mt-4 rounded-xl border border-slate-200 p-4 bg-slate-50">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm text-slate-700">
-                          Price
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          value={edit.price}
-                          onChange={(e) =>
-                            setEdit((p) => ({ ...p, price: e.target.value }))
-                          }
-                          className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-slate-700">
-                          Vehicle Model
-                        </label>
-                        <input
-                          type="text"
-                          value={edit.vehicleModel}
-                          onChange={(e) =>
-                            setEdit((p) => ({
-                              ...p,
-                              vehicleModel: e.target.value,
-                            }))
-                          }
-                          className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-slate-700">
-                          Total Seats
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={50}
-                          value={edit.totalSeats}
-                          onChange={(e) =>
-                            setEdit((p) => ({
-                              ...p,
-                              totalSeats: e.target.value,
-                            }))
-                          }
-                          className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-slate-700">
-                          Available Seats
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={edit.totalSeats || 50}
-                          value={edit.availableSeats}
-                          onChange={(e) =>
-                            setEdit((p) => ({
-                              ...p,
-                              availableSeats: e.target.value,
-                            }))
-                          }
-                          className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-slate-700">
-                          Status
-                        </label>
-                        <select
-                          value={edit.status}
-                          onChange={(e) =>
-                            setEdit((p) => ({ ...p, status: e.target.value }))
-                          }
-                          className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                        >
-                          <option value="available">available</option>
-                          <option value="unavailable">unavailable</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        className="px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
-                        onClick={cancelEdit}
-                        disabled={acting}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 disabled:opacity-60"
-                        onClick={saveEdit}
-                        disabled={acting}
-                      >
-                        {acting ? "Saving…" : "Save"}
-                      </button>
-                    </div>
+          {loading ? (
+            <div className="mt-4">
+              <Spinner label="Loading rides..." />
+            </div>
+          ) : rides.length === 0 ? (
+            <p className="mt-2 text-slate-600">
+              No rides yet. Post your first ride above.
+            </p>
+          ) : (
+            <ul className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {rides.map((r) => (
+                <li
+                  key={r._id}
+                  className="rounded-2xl border border-slate-200 bg-white p-5"
+                >
+                  <div className="flex items-start justify-between">
+                    <h4 className="text-lg font-semibold text-slate-900">
+                      {r.from} → {r.to}
+                    </h4>
+                    <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
+                      {r.category}
+                    </span>
                   </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                  <p className="mt-1 text-slate-600 text-sm">
+                    Journey: {formatDate(r.journeyDate)}
+                    {r.returnDate
+                      ? ` • Return: ${formatDate(r.returnDate)}`
+                      : ""}
+                  </p>
+                  <p className="mt-1 text-slate-600 text-sm">
+                    Vehicle: {r.vehicleModel} • Seats: {r.availableSeats}/
+                    {r.totalSeats}
+                  </p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <p className="text-slate-900 font-semibold">৳ {r.price}</p>
+                    <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
+                      {r.status}
+                    </span>
+                  </div>
+                  {r.imageUrl && (
+                    <img
+                      src={r.imageUrl}
+                      alt="vehicle"
+                      className="mt-3 h-36 w-full rounded-xl object-cover border border-slate-200"
+                    />
+                  )}
+
+                  {/* Actions */}
+                  <div className="mt-4 flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                      onClick={() => startEdit(r)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 disabled:opacity-60"
+                      onClick={() => onDelete(r._id)}
+                      disabled={acting}
+                    >
+                      Delete
+                    </button>
+                  </div>
+
+                  {/* Inline edit panel */}
+                  {editingId === r._id && (
+                    <div className="mt-4 rounded-xl border border-slate-200 p-4 bg-slate-50">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm text-slate-700">
+                            Price
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={edit.price}
+                            onChange={(e) =>
+                              setEdit((p) => ({ ...p, price: e.target.value }))
+                            }
+                            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-slate-700">
+                            Vehicle Model
+                          </label>
+                          <input
+                            type="text"
+                            value={edit.vehicleModel}
+                            onChange={(e) =>
+                              setEdit((p) => ({
+                                ...p,
+                                vehicleModel: e.target.value,
+                              }))
+                            }
+                            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-slate-700">
+                            Total Seats
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={50}
+                            value={edit.totalSeats}
+                            onChange={(e) =>
+                              setEdit((p) => ({
+                                ...p,
+                                totalSeats: e.target.value,
+                              }))
+                            }
+                            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-slate-700">
+                            Available Seats
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={edit.totalSeats || 50}
+                            value={edit.availableSeats}
+                            onChange={(e) =>
+                              setEdit((p) => ({
+                                ...p,
+                                availableSeats: e.target.value,
+                              }))
+                            }
+                            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-slate-700">
+                            Status
+                          </label>
+                          <select
+                            value={edit.status}
+                            onChange={(e) =>
+                              setEdit((p) => ({ ...p, status: e.target.value }))
+                            }
+                            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                          >
+                            <option value="available">available</option>
+                            <option value="unavailable">unavailable</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          className="px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                          onClick={cancelEdit}
+                          disabled={acting}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 disabled:opacity-60"
+                          onClick={saveEdit}
+                          disabled={acting}
+                        >
+                          {acting ? "Saving…" : "Save"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Rides pagination */}
+          {!loading && pageInfo.pages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <button
+                className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 disabled:opacity-60"
+                onClick={() => goRidePage(pageInfo.page - 1)}
+                disabled={pageInfo.page <= 1}
+              >
+                Prev
+              </button>
+              <span className="text-sm text-slate-700">
+                Page <strong className="text-slate-900">{pageInfo.page}</strong>{" "}
+                of {pageInfo.pages}
+              </span>
+              <button
+                className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 disabled:opacity-60"
+                onClick={() => goRidePage(pageInfo.page + 1)}
+                disabled={pageInfo.page >= pageInfo.pages}
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="rounded-b-2xl border border-t-0 border-slate-200 bg-white p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-slate-900">
+              Bookings on My Rides
+            </h3>
+            {bkLoading ? (
+              <Spinner />
+            ) : (
+              <span className="text-sm text-slate-600">{bk.total} total</span>
+            )}
+          </div>
+
+          {bkLoading ? (
+            <div className="mt-4">
+              <Spinner label="Loading bookings..." />
+            </div>
+          ) : (bk.items || []).length === 0 ? (
+            <p className="mt-2 text-slate-600">No bookings yet.</p>
+          ) : (
+            <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr className="text-left text-slate-700">
+                    <th className="px-4 py-3">Passenger</th>
+                    <th className="px-4 py-3">Phone</th>
+                    <th className="px-4 py-3">Seats</th>
+                    <th className="px-4 py-3">Amount</th>
+                    <th className="px-4 py-3">Route</th>
+                    <th className="px-4 py-3">Dates</th>
+                    <th className="px-4 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bk.items.map((b) => (
+                    <tr key={b._id} className="border-t border-slate-200">
+                      <td className="px-4 py-3 text-slate-900">
+                        {b.passengerName}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">{b.phone}</td>
+                      <td className="px-4 py-3 text-slate-700">{b.seats}</td>
+                      <td className="px-4 py-3 text-slate-900 font-medium">
+                        ৳ {b.amount}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {b?.ride?.from} → {b?.ride?.to}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {b?.ride?.journeyDate
+                          ? formatDate(b.ride.journeyDate)
+                          : "—"}
+                        {b?.ride?.returnDate
+                          ? ` • ${formatDate(b.ride.returnDate)}`
+                          : ""}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
+                          {b.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Bookings pagination */}
+          {!bkLoading && bk.pages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <button
+                className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 disabled:opacity-60"
+                onClick={() => goBookingPage(bk.page - 1)}
+                disabled={bk.page <= 1}
+              >
+                Prev
+              </button>
+              <span className="text-sm text-slate-700">
+                Page <strong className="text-slate-900">{bk.page}</strong> of{" "}
+                {bk.pages}
+              </span>
+              <button
+                className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 disabled:opacity-60"
+                onClick={() => goBookingPage(bk.page + 1)}
+                disabled={bk.page >= bk.pages}
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

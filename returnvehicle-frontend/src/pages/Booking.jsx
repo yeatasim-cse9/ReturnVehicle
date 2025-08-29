@@ -4,6 +4,7 @@ import { getRideById } from "../services/ridesApi";
 import ConfirmModal from "../components/ConfirmModal";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-hot-toast";
+import { createBooking } from "../services/bookingsApi";
 
 function Spinner({ label = "Loading..." }) {
   return (
@@ -89,15 +90,24 @@ export default function BookingPage() {
       return toast.error("Please enter valid name & phone");
     }
 
-    // Placeholder: here we'd call backend to create a booking
     try {
       setSubmitting(true);
-      setTimeout(() => {
-        setOpenModal(true);
-        setSubmitting(false);
-      }, 400);
+      // ✅ Backend booking call
+      await createBooking({
+        rideId: ride._id,
+        seats: Number(form.seats),
+        fullName: form.fullName.trim(),
+        phone: form.phone.trim(),
+        note: form.note.trim(),
+      });
+      // Success
+      setOpenModal(true);
     } catch (err) {
-      toast.error(err?.message || "Booking failed");
+      const msg =
+        err?.response?.data?.message || err?.message || "Booking failed";
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -267,9 +277,10 @@ export default function BookingPage() {
       {/* Confirm Modal */}
       <ConfirmModal open={openModal} onClose={() => setOpenModal(false)}>
         <p>
-          <span className="font-semibold">Booking Confirmed.</span> This is a
-          placeholder for future payment (Stripe/SSLCommerz). You will see your
-          booking in your dashboard once backend booking API is added.
+          <span className="font-semibold">Booking Confirmed.</span> Payment
+          placeholder (Stripe/SSLCommerz).
+          <br />
+          Your booking has been recorded.
         </p>
       </ConfirmModal>
     </div>

@@ -6,6 +6,7 @@ import healthRouter from "./routes/health.routes.js";
 import authRouter from "./routes/auth.routes.js";
 import locationsRouter from "./routes/locations.routes.js";
 import ridesRouter from "./routes/rides.routes.js";
+import bookingsRouter from "./routes/bookings.routes.js";
 import { notFound, errorHandler } from "./middlewares/errorHandler.js";
 
 const app = express();
@@ -20,6 +21,7 @@ app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/locations", locationsRouter);
 app.use("/api/rides", ridesRouter);
+app.use("/api/bookings", bookingsRouter);
 
 // Fallbacks
 app.use("*", notFound);
