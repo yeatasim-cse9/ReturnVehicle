@@ -1,32 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AutocompleteInput from "./AutocompleteInput";
-
-// Bangladesh mock locations (sample). পরে MongoDB থেকে ফেচ করবো।
-const BD_LOCATIONS = [
-  "Dhaka",
-  "Chittagong",
-  "Sylhet",
-  "Rajshahi",
-  "Khulna",
-  "Barishal",
-  "Rangpur",
-  "Mymensingh",
-  "Cox’s Bazar",
-  "Comilla",
-  "Gazipur",
-  "Narayanganj",
-  "Tangail",
-  "Jessore",
-  "Bogra",
-  "Dinajpur",
-  "Pabna",
-  "Feni",
-  "Noakhali",
-  "Jamalpur",
-  "Moulvibazar",
-  "Habiganj",
-];
+import { BD_LOCATIONS } from "../constants/locations";
 
 export default function SearchForm({ compact = false }) {
   const navigate = useNavigate();
