@@ -8,11 +8,9 @@ export async function requireAuth(req, res, next) {
     if (!token)
       return res.status(401).json({ message: "Unauthorized: Missing token" });
 
-    // Verify Firebase ID token
     const decoded = await adminAuth.verifyIdToken(token);
     const { uid, email, name, picture } = decoded;
 
-    // Upsert user in DB (default role: 'user')
     const dbUser = await User.findOneAndUpdate(
       { uid },
       {
@@ -32,8 +30,8 @@ export async function requireAuth(req, res, next) {
       displayName: dbUser.displayName,
       photoURL: dbUser.photoURL,
       role: dbUser.role,
+      status: dbUser.status,
     };
-
     next();
   } catch (err) {
     console.error("Auth error:", err);

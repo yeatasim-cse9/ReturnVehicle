@@ -40,14 +40,29 @@ export default function Header() {
                   User
                 </NavLink>
               )}
+              {role === "user" && (
+                <NavLink to="/profile" className={navLinkClass}>
+                  Profile
+                </NavLink>
+              )}
               {role === "driver" && (
                 <NavLink to="/driver/dashboard" className={navLinkClass}>
                   Driver
                 </NavLink>
               )}
+              {role === "driver" && (
+                <NavLink to="/profile" className={navLinkClass}>
+                  Profile
+                </NavLink>
+              )}
               {role === "admin" && (
                 <NavLink to="/admin/dashboard" className={navLinkClass}>
                   Admin
+                </NavLink>
+              )}
+              {role === "admin" && (
+                <NavLink to="/profile" className={navLinkClass}>
+                  Profile
                 </NavLink>
               )}
             </>

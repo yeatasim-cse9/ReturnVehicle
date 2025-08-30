@@ -6,13 +6,13 @@ const UserSchema = new mongoose.Schema(
     email: { type: String, default: "" },
     displayName: { type: String, default: "" },
     photoURL: { type: String, default: "" },
+    phoneNumber: { type: String, default: "" },
     role: {
       type: String,
       enum: ["user", "driver", "admin"],
       default: "user",
       index: true,
     },
-    // আগের ডকুমেন্টে status নাও থাকতে পারে; ডিফল্ট = 'approved'
     status: {
       type: String,
       enum: ["approved", "blocked"],
@@ -23,6 +23,5 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ⚠️ collection নাম 'users' ফিক্স করা হলো যাতে আগের কালেকশনই ব্যবহার হয়
 export const User =
   mongoose.models.User || mongoose.model("User", UserSchema, "users");

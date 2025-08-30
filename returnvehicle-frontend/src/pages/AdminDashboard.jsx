@@ -27,7 +27,8 @@ export default function AdminDashboard() {
   });
 
   const roles = useMemo(() => ["", "user", "driver", "admin"], []);
-  const statuses = useMemo(() => ["", "active", "blocked", "pending"], []);
+  // নোট: ব্যাকএন্ড স্কিমায় status enum ["approved","blocked"]; UI-তে পূর্বে "active/pending" প্লেসহোল্ডার ছিল
+  const statuses = useMemo(() => ["", "approved", "blocked"], []);
 
   const fetchUsers = async (p = 1) => {
     setLoading(true);
@@ -179,43 +180,41 @@ export default function AdminDashboard() {
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Phone</th>
-                <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">RoleStatus</th>
                 <th className="px-4 py-3">Joined</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u, i) => (
-                <tr
-                  key={u?.uid || u?._id || i}
-                  className="border-t border-slate-200"
-                >
-                  <td className="px-4 py-3 text-slate-900">
-                    {u?.displayName || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-slate-700">
-                    {u?.email || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-slate-700">
-                    {u?.phone || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
-                      {u?.role || "user"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
-                      {u?.status || "active"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-700">
-                    {u?.createdAt
-                      ? new Date(u.createdAt).toISOString().slice(0, 10)
-                      : "—"}
-                  </td>
-                </tr>
-              ))}
+              {users.map((u, i) => {
+                const nameCell =
+                  (u?.displayName && u.displayName.trim()) || u?.email || "—";
+                const roleLabel = u?.role || "user";
+                const statusLabel = u?.status || "approved";
+                return (
+                  <tr
+                    key={u?.uid || u?._id || i}
+                    className="border-t border-slate-200"
+                  >
+                    <td className="px-4 py-3 text-slate-900">{nameCell}</td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {u?.email || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {u?.phone || "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
+                        {roleLabel} / {statusLabel}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {u?.createdAt
+                        ? new Date(u.createdAt).toISOString().slice(0, 10)
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
