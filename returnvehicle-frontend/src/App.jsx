@@ -4,6 +4,8 @@ import Header from "./components/Header";
 import Footer from "./components/Footer";
 
 import Home from "./pages/Home";
+import RidesPage from "./pages/Rides";
+
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import SearchPage from "./pages/Search";
@@ -31,6 +33,7 @@ export default function App() {
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Home />} />
+            <Route path="/rides" element={<RidesPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/search" element={<SearchPage />} />

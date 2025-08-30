@@ -1,109 +1,95 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AutocompleteInput from "./AutocompleteInput";
 
-export default function SearchForm({ compact = false }) {
+export default function SearchForm() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({
-    from: "",
-    to: "",
-    journeyDate: "",
-    returnDate: "",
-    category: "Car",
-    passengers: 1,
-  });
-
-  const canSubmit = useMemo(() => {
-    return (
-      form.from &&
-      form.to &&
-      form.journeyDate &&
-      form.category &&
-      form.passengers > 0
-    );
-  }, [form]);
-
-  const handleChange = (key, val) => {
-    setForm((p) => ({ ...p, [key]: val }));
-  };
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [date, setDate] = useState(""); // ✅ MUST be "date" (not journeyDate)
+  const [category, setCategory] = useState("");
+  const [passengers, setPassengers] = useState(1);
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
 
   const onSubmit = (e) => {
     e.preventDefault();
-    if (!canSubmit) return;
-    const params = new URLSearchParams({
-      from: form.from,
-      to: form.to,
-      journeyDate: form.journeyDate,
-      ...(form.returnDate ? { returnDate: form.returnDate } : {}),
-      category: form.category,
-      passengers: String(form.passengers),
-    });
-    navigate(`/search?${params.toString()}`);
+
+    const sp = new URLSearchParams();
+    if (from.trim()) sp.set("from", from.trim());
+    if (to.trim()) sp.set("to", to.trim());
+    if (date) sp.set("date", date); // ✅ backend expects `date`
+    if (category) sp.set("category", category); // case-insensitive server-side
+    if (passengers) sp.set("passengers", String(passengers));
+    if (minPrice) sp.set("minPrice", String(minPrice));
+    if (maxPrice) sp.set("maxPrice", String(maxPrice));
+    sp.set("page", "1");
+    sp.set("limit", "12");
+
+    navigate(`/search?${sp.toString()}`);
   };
 
   return (
     <form
       onSubmit={onSubmit}
-      className={`w-full ${
-        compact ? "" : "max-w-5xl mx-auto"
-      } rounded-2xl bg-white shadow p-4 md:p-5`}
+      className="rounded-2xl border border-slate-200 bg-white p-4"
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <AutocompleteInput
-          label="From"
-          name="from"
-          value={form.from}
-          onChange={(v) => handleChange("from", v)}
-          placeholder="e.g., Dhaka"
-        />
-        <AutocompleteInput
-          label="To"
-          name="to"
-          value={form.to}
-          onChange={(v) => handleChange("to", v)}
-          placeholder="e.g., Chattogram"
-        />
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700">
-            Journey Date
-          </label>
-          <input
-            type="date"
-            value={form.journeyDate}
-            onChange={(e) => handleChange("journeyDate", e.target.value)}
-            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+        {/* From */}
+        <div className="md:col-span-2">
+          <AutocompleteInput
+            label="From"
+            name="from"
+            value={from}
+            onChange={setFrom}
+            placeholder="e.g., Dhaka"
             required
           />
         </div>
 
+        {/* To */}
+        <div className="md:col-span-2">
+          <AutocompleteInput
+            label="To"
+            name="to"
+            value={to}
+            onChange={setTo}
+            placeholder="e.g., Sylhet"
+            required
+          />
+        </div>
+
+        {/* Date */}
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Return Date (optional)
+            Date
           </label>
           <input
             type="date"
-            value={form.returnDate}
-            onChange={(e) => handleChange("returnDate", e.target.value)}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
             className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
           />
         </div>
 
+        {/* Category */}
         <div>
           <label className="block text-sm font-medium text-slate-700">
             Category
           </label>
           <select
-            value={form.category}
-            onChange={(e) => handleChange("category", e.target.value)}
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
             className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
           >
-            <option>Ambulance</option>
-            <option>Car</option>
-            <option>Truck</option>
+            <option value="">Any</option>
+            <option value="Ambulance">Ambulance</option>
+            <option value="Car">Car</option>
+            <option value="Truck">Truck</option>
           </select>
         </div>
 
+        {/* Passengers */}
         <div>
           <label className="block text-sm font-medium text-slate-700">
             Passengers
@@ -111,19 +97,47 @@ export default function SearchForm({ compact = false }) {
           <input
             type="number"
             min={1}
-            max={8}
-            value={form.passengers}
-            onChange={(e) => handleChange("passengers", Number(e.target.value))}
+            value={passengers}
+            onChange={(e) => setPassengers(Number(e.target.value))}
+            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+          />
+        </div>
+
+        {/* Price Min */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700">
+            Min Price (৳)
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={minPrice}
+            onChange={(e) => setMinPrice(e.target.value)}
+            placeholder="e.g., 500"
+            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+          />
+        </div>
+
+        {/* Price Max */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700">
+            Max Price (৳)
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+            placeholder="e.g., 3000"
             className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
           />
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-end">
+      <div className="mt-4 text-right">
         <button
           type="submit"
-          disabled={!canSubmit}
-          className="px-6 py-2.5 rounded-xl bg-slate-900 text-white hover:opacity-90 disabled:opacity-60"
+          className="px-5 py-2.5 rounded-xl bg-slate-900 text-white hover:opacity-90"
         >
           Search
         </button>

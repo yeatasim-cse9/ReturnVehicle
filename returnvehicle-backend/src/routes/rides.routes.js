@@ -1,20 +1,104 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import { Ride } from "../models/Ride.js";
+import { Booking } from "../models/Booking.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { requireRole } from "../middlewares/requireRole.js";
 
 const router = Router();
 
-function isValidObjectId(id) {
-  return mongoose.Types.ObjectId.isValid(id);
-}
-function escRx(s = "") {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Helpers
+function parseBool(v) {
+  if (typeof v === "boolean") return v;
+  if (typeof v !== "string") return false;
+  return ["1", "true", "yes", "on"].includes(v.toLowerCase());
 }
 
-// ---------- Create ride (Driver only) ----------
-// POST /api/rides
+// ------------------------------
+// GET /api/rides  (public search)
+// ------------------------------
+router.get("/", async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page || "1", 10));
+    const limit = Math.min(
+      50,
+      Math.max(1, parseInt(req.query.limit || "12", 10))
+    );
+    const skip = (page - 1) * limit;
+
+    const { from, to, date, category, priceMin, priceMax, onlyAvailable } =
+      req.query;
+
+    const q = {};
+
+    if (from) q.from = { $regex: new RegExp(from, "i") };
+    if (to) q.to = { $regex: new RegExp(to, "i") };
+    if (category) q.category = { $regex: new RegExp(category, "i") };
+
+    if (date) {
+      const start = new Date(date);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 1);
+      q.journeyDate = { $gte: start, $lt: end };
+    }
+
+    // price
+    const min = Number(priceMin || 0);
+    const max = Number(priceMax || 0);
+    if (min || max) {
+      q.price = {};
+      if (min) q.price.$gte = min;
+      if (max) q.price.$lte = max;
+    }
+
+    if (parseBool(onlyAvailable)) {
+      q.status = "available";
+      q.availableSeats = { $gt: 0 };
+    }
+
+    const [items, total] = await Promise.all([
+      Ride.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Ride.countDocuments(q),
+    ]);
+
+    res.json({ items, total, page, pages: Math.ceil(total / limit), limit });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------
+// GET /api/rides/mine (driver's own rides)
+// ---------------------------------------
+router.get(
+  "/mine",
+  requireAuth,
+  requireRole("driver"),
+  async (req, res, next) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page || "1", 10));
+      const limit = Math.min(
+        50,
+        Math.max(1, parseInt(req.query.limit || "20", 10))
+      );
+      const skip = (page - 1) * limit;
+      const q = { driverId: req.authUser.uid };
+
+      const [items, total] = await Promise.all([
+        Ride.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        Ride.countDocuments(q),
+      ]);
+
+      res.json({ items, total, page, pages: Math.ceil(total / limit), limit });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// -------------------------------
+// POST /api/rides (create a ride)
+// -------------------------------
 router.post("/", requireAuth, requireRole("driver"), async (req, res, next) => {
   try {
     const {
@@ -29,107 +113,46 @@ router.post("/", requireAuth, requireRole("driver"), async (req, res, next) => {
       availableSeats,
       imageUrl,
       imageFileId,
-    } = req.body || {};
+      status,
+    } = req.body;
 
-    if (!from?.trim() || !to?.trim())
-      return res.status(400).json({ message: "from/to required" });
-    if (!journeyDate)
-      return res.status(400).json({ message: "journeyDate required" });
-    if (!["Ambulance", "Car", "Truck"].includes(category))
-      return res.status(400).json({ message: "invalid category" });
-    if (!price || Number(price) <= 0)
-      return res.status(400).json({ message: "invalid price" });
-
-    if (returnDate) {
-      const jd = new Date(journeyDate);
-      const rd = new Date(returnDate);
-      if (rd < jd)
-        return res
-          .status(400)
-          .json({ message: "returnDate cannot be before journeyDate" });
+    if (
+      !from ||
+      !to ||
+      !journeyDate ||
+      !category ||
+      !price ||
+      !vehicleModel ||
+      !totalSeats
+    ) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
     const ride = await Ride.create({
       driverId: req.authUser.uid,
-      from: from.trim(),
-      to: to.trim(),
+      from: String(from).trim(),
+      to: String(to).trim(),
       journeyDate: new Date(journeyDate),
       returnDate: returnDate ? new Date(returnDate) : null,
       category,
       price: Number(price),
-      vehicleModel: (vehicleModel || "").trim(),
-      totalSeats: Number(totalSeats || 4),
-      availableSeats: Number(availableSeats || 4),
-
-      // ✅ persist image fields
+      vehicleModel: String(vehicleModel).trim(),
+      totalSeats: Number(totalSeats),
+      availableSeats: Number(availableSeats ?? totalSeats),
       imageUrl: imageUrl || "",
       imageFileId: imageFileId || "",
-
-      status: "available",
+      status: status || "available",
     });
 
-    return res.status(201).json({ ride });
+    res.status(201).json(ride);
   } catch (err) {
     next(err);
   }
 });
 
-// ---------- My rides (Driver only) with pagination ----------
-// GET /api/rides/mine?page=&limit=
-router.get(
-  "/mine",
-  requireAuth,
-  requireRole("driver"),
-  async (req, res, next) => {
-    try {
-      const page = Math.max(1, parseInt(req.query.page || "1", 10));
-      const limit = Math.min(
-        50,
-        Math.max(1, parseInt(req.query.limit || "12", 10))
-      );
-      const skip = (page - 1) * limit;
-
-      const filter = { driverId: req.authUser.uid };
-
-      const [items, total] = await Promise.all([
-        Ride.find(filter)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .lean(),
-        Ride.countDocuments(filter),
-      ]);
-
-      return res.json({
-        items,
-        total,
-        page,
-        pages: Math.ceil(total / limit),
-        limit,
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
-);
-
-// ---------- Public: get ride by id ----------
-// GET /api/rides/:id
-router.get("/:id", async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    if (!isValidObjectId(id))
-      return res.status(400).json({ message: "invalid id" });
-    const ride = await Ride.findById(id).lean();
-    if (!ride) return res.status(404).json({ message: "ride not found" });
-    return res.json({ ride });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// ---------- Driver: update own ride ----------
-// PATCH /api/rides/:id
+// ---------------------------------------
+// PATCH /api/rides/:id (update a ride)
+// ---------------------------------------
 router.patch(
   "/:id",
   requireAuth,
@@ -137,20 +160,14 @@ router.patch(
   async (req, res, next) => {
     try {
       const { id } = req.params;
-      if (!isValidObjectId(id))
+      if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ message: "invalid id" });
+      }
 
-      const ride = await Ride.findById(id).lean();
+      const ride = await Ride.findOne({ _id: id, driverId: req.authUser.uid });
       if (!ride) return res.status(404).json({ message: "ride not found" });
-      if (ride.driverId !== req.authUser.uid)
-        return res.status(403).json({ message: "forbidden" });
 
       const allowed = [
-        "from",
-        "to",
-        "journeyDate",
-        "returnDate",
-        "category",
         "price",
         "vehicleModel",
         "totalSeats",
@@ -159,31 +176,28 @@ router.patch(
         "imageUrl",
         "imageFileId",
       ];
-      const set = {};
-      for (const k of allowed) {
-        if (k in req.body) {
-          set[k] = req.body[k];
+
+      for (const key of allowed) {
+        if (req.body[key] !== undefined) {
+          if (["price", "totalSeats", "availableSeats"].includes(key)) {
+            ride[key] = Number(req.body[key]);
+          } else {
+            ride[key] = req.body[key];
+          }
         }
       }
-      if ("journeyDate" in set && set.journeyDate)
-        set.journeyDate = new Date(set.journeyDate);
-      if ("returnDate" in set)
-        set.returnDate = set.returnDate ? new Date(set.returnDate) : null;
 
-      const updated = await Ride.findByIdAndUpdate(
-        id,
-        { $set: set },
-        { new: true }
-      ).lean();
-      return res.json({ ride: updated });
+      await ride.save();
+      res.json(ride);
     } catch (err) {
       next(err);
     }
   }
 );
 
-// ---------- Driver: delete own ride ----------
-// DELETE /api/rides/:id
+// ---------------------------------------
+// DELETE /api/rides/:id (delete a ride)
+// ---------------------------------------
 router.delete(
   "/:id",
   requireAuth,
@@ -191,71 +205,166 @@ router.delete(
   async (req, res, next) => {
     try {
       const { id } = req.params;
-      if (!isValidObjectId(id))
+      if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ message: "invalid id" });
-
-      const ride = await Ride.findById(id).lean();
+      }
+      const ride = await Ride.findOneAndDelete({
+        _id: id,
+        driverId: req.authUser.uid,
+      });
       if (!ride) return res.status(404).json({ message: "ride not found" });
-      if (ride.driverId !== req.authUser.uid)
-        return res.status(403).json({ message: "forbidden" });
-
-      await Ride.deleteOne({ _id: id });
-      return res.json({ deleted: true });
+      res.json({ ok: true });
     } catch (err) {
       next(err);
     }
   }
 );
 
-// ---------- Public search ----------
-// GET /api/rides/search?from=&to=&date=&category=&minPrice=&maxPrice=&page=&limit=
-router.get(
-  "/",
-  async (req, res, next) => next() // placeholder to avoid route shadow, actual search below
+// ------------------------------------------------------
+// POST /api/rides/:id/book  (user creates a booking)
+// ------------------------------------------------------
+router.post(
+  "/:id/book",
+  requireAuth,
+  requireRole("user"),
+  async (req, res, next) => {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "invalid ride id" });
+    }
+
+    const session = await mongoose.startSession();
+    try {
+      let created = null;
+
+      await session.withTransaction(async () => {
+        const ride = await Ride.findById(id).session(session);
+        if (!ride) {
+          const e = new Error("ride not found");
+          e.status = 404;
+          throw e;
+        }
+        if (ride.status !== "available") {
+          const e = new Error("ride unavailable");
+          e.status = 409;
+          throw e;
+        }
+
+        const passengers = Math.max(1, Number(req.body.passengers || 1));
+
+        if ((ride.availableSeats || 0) < passengers) {
+          const e = new Error("Seat is not Available");
+          e.status = 409;
+          throw e;
+        }
+
+        const contactName = (
+          req.body.contactName ||
+          req.body.passengerName ||
+          req.body.name ||
+          ""
+        )
+          .toString()
+          .trim();
+        const contactPhone = (req.body.contactPhone || req.body.phone || "")
+          .toString()
+          .trim();
+
+        const pricePerSeat = Number(ride.price || 0);
+
+        created = await Booking.create(
+          [
+            {
+              rideId: ride._id,
+              userId: req.authUser.uid,
+              driverId: ride.driverId,
+              passengers,
+              pricePerSeat,
+              totalPrice: pricePerSeat * passengers,
+              contactName,
+              contactPhone,
+              status: "pending",
+            },
+          ],
+          { session }
+        );
+
+        created = created[0];
+      });
+
+      session.endSession();
+
+      const hydrated = await Booking.findById(created._id)
+        .populate({
+          path: "rideId",
+          select: "from to journeyDate returnDate category price",
+        })
+        .lean();
+      const ride = hydrated?.rideId || null;
+      if (hydrated) delete hydrated.rideId;
+
+      res.status(201).json({ ...(hydrated || {}), ride });
+    } catch (err) {
+      session.endSession();
+      if (err?.status)
+        return res.status(err.status).json({ message: err.message });
+      next(err);
+    }
+  }
 );
 
-router.get("/", async (req, res, next) => {
+// ---------------------------------------
+// DEBUG: filter inspector  (keep BEFORE :id)
+// ---------------------------------------
+router.get("/_debug/filters", async (req, res, next) => {
   try {
-    const {
-      from = "",
-      to = "",
-      date = "",
-      category = "",
-      minPrice = "",
-      maxPrice = "",
-      page = "1",
-      limit = "12",
-    } = req.query;
-
+    const { from, to, date, category, priceMin, priceMax } = req.query;
     const q = {};
-    if (from.trim()) q.from = { $regex: new RegExp(escRx(from.trim()), "i") };
-    if (to.trim()) q.to = { $regex: new RegExp(escRx(to.trim()), "i") };
-    if (category && ["Ambulance", "Car", "Truck"].includes(category))
-      q.category = category;
+    if (from) q.from = { $regex: new RegExp(from, "i") };
+    if (to) q.to = { $regex: new RegExp(to, "i") };
+    if (category) q.category = { $regex: new RegExp(category, "i") };
     if (date) {
-      const d0 = new Date(date);
-      const d1 = new Date(date);
-      d1.setDate(d1.getDate() + 1);
-      q.journeyDate = { $gte: d0, $lt: d1 };
+      const start = new Date(date);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 1);
+      q.journeyDate = { $gte: start, $lt: end };
     }
-    const min = Number(minPrice);
-    const max = Number(maxPrice);
-    if (!Number.isNaN(min) || !Number.isNaN(max)) {
+    const min = Number(priceMin || 0);
+    const max = Number(priceMax || 0);
+    if (min || max) {
       q.price = {};
-      if (!Number.isNaN(min)) q.price.$gte = min;
-      if (!Number.isNaN(max)) q.price.$lte = max;
+      if (min) q.price.$gte = min;
+      if (max) q.price.$lte = max;
     }
+    const totalAll = await Ride.countDocuments({});
+    const sample = await Ride.find(q).limit(1).lean();
+    const matchCount = await Ride.countDocuments(q);
+    res.json({
+      ok: true,
+      totalAll,
+      matchCount,
+      queryParams: { from, to, date, category },
+      builtFilter: q,
+      sample,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
-    const p = Math.max(1, parseInt(page, 10));
-    const l = Math.min(50, Math.max(1, parseInt(limit, 10)));
-    const skip = (p - 1) * l;
-
-    const [items, total] = await Promise.all([
-      Ride.find(q).sort({ journeyDate: 1 }).skip(skip).limit(l).lean(),
-      Ride.countDocuments(q),
-    ]);
-
-    res.json({ items, total, page: p, pages: Math.ceil(total / l), limit: l });
+// ---------------------------------------
+// GET /api/rides/:id (public getById)
+//   NOTE: placed AFTER /_debug/filters to avoid route conflict
+// ---------------------------------------
+router.get("/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "invalid id" });
+    }
+    const ride = await Ride.findById(id).lean();
+    if (!ride) return res.status(404).json({ message: "ride not found" });
+    res.json(ride);
   } catch (err) {
     next(err);
   }

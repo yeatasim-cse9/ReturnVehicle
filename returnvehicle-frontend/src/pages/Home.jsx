@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import SearchForm from "../components/SearchForm";
 import SectionTitle from "../components/SectionTitle";
 import FeatureCard from "../components/FeatureCard";
-import FeaturedRides from "../components/FeaturedRides";
+import AvailableRides from "../components/AvailableRides";
 
 export default function Home() {
   return (
@@ -16,7 +16,6 @@ export default function Home() {
           style={{ backgroundImage: `url(${heroUrl})` }}
           aria-hidden="true"
         />
-        {/* subtle overlay for readability */}
         <div
           className="absolute inset-0 bg-gradient-to-b from-slate-900/70 via-slate-900/40 to-slate-900/20"
           aria-hidden="true"
@@ -51,7 +50,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* search form sits under hero text on larger screens */}
             <div className="mt-8 md:mt-12">
               <div className="max-w-5xl">
                 <SearchForm />
@@ -60,7 +58,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* subtle bottom fade */}
         <div
           className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-50 to-transparent"
           aria-hidden="true"
@@ -113,16 +110,30 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FEATURED RIDES (placeholder, backend later) */}
+      {/* AVAILABLE RIDES (single header here) */}
       <section className="bg-slate-50 border-t border-slate-200">
         <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
-          <SectionTitle
-            eyebrow="Popular right now"
-            title="Featured rides"
-            subtitle="Sample cards for layout preview. Real data will load after backend integration."
-          />
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <SectionTitle
+                eyebrow="Open seats right now"
+                title="Available rides"
+                subtitle="Live listings with seats available. Book and go."
+              />
+            </div>
+            <div className="pb-2">
+              <Link
+                to="/rides"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+              >
+                See all available rides
+              </Link>
+            </div>
+          </div>
+
           <div className="mt-8">
-            <FeaturedRides />
+            {/* Only the grid/list; header hidden here */}
+            <AvailableRides showHeader={false} initialLimit={8} />
           </div>
         </div>
       </section>
@@ -130,7 +141,7 @@ export default function Home() {
       {/* CTA BAND */}
       <section className="bg-gradient-to-r from-slate-900 to-slate-700">
         <div className="max-w-6xl mx-auto px-4 py-12 md:py-16 text-center">
-          <h3 className="text-2xl md:text-3xl font-bold text-white">
+          <h3 className="text-2xl md:3xl font-bold text-white">
             Ready to roll across Bangladesh?
           </h3>
           <p className="mt-2 text-white/90">

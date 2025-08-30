@@ -1,81 +1,15 @@
 import { Router } from "express";
 import mongoose from "mongoose";
+import { Booking } from "../models/Booking.js";
+import { Ride } from "../models/Ride.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { requireRole } from "../middlewares/requireRole.js";
-import { Ride } from "../models/Ride.js";
-import { Booking } from "../models/Booking.js";
 
 const router = Router();
 
-function isValidObjectId(id) {
-  return mongoose.Types.ObjectId.isValid(id);
-}
-
-/**
- * POST /api/bookings
- * body: { rideId, seats, fullName, phone, note }
- * role: user
- * - checks seat availability atomically
- * - creates a booking, decrements ride.availableSeats
- */
-router.post("/", requireAuth, requireRole("user"), async (req, res, next) => {
-  try {
-    const { rideId, seats, fullName, phone, note = "" } = req.body || {};
-    if (!isValidObjectId(rideId))
-      return res.status(400).json({ message: "Invalid rideId" });
-
-    const nSeats = Number(seats);
-    if (!(nSeats >= 1))
-      return res.status(400).json({ message: "Seats must be >= 1" });
-    if (!String(fullName || "").trim())
-      return res.status(400).json({ message: "Full name required" });
-    if (!String(phone || "").trim())
-      return res.status(400).json({ message: "Phone required" });
-
-    const ride = await Ride.findById(rideId).lean();
-    if (!ride) return res.status(404).json({ message: "Ride not found" });
-    if (ride.status !== "available")
-      return res.status(400).json({ message: "Ride is not available" });
-    if (ride.driverId === req.authUser.uid) {
-      return res.status(400).json({ message: "You cannot book your own ride" });
-    }
-
-    // atomic seat decrement
-    const updatedRide = await Ride.findOneAndUpdate(
-      { _id: rideId, status: "available", availableSeats: { $gte: nSeats } },
-      { $inc: { availableSeats: -nSeats } },
-      { new: true }
-    ).lean();
-
-    if (!updatedRide) {
-      return res.status(400).json({ message: "Seat is not Available" });
-    }
-
-    const amount = Number(ride.price) * nSeats;
-
-    const booking = await Booking.create({
-      rideId,
-      userId: req.authUser.uid,
-      driverId: ride.driverId,
-      seats: nSeats,
-      amount,
-      passengerName: String(fullName).trim(),
-      phone: String(phone).trim(),
-      note: String(note || "").trim(),
-      status: "booked",
-    });
-
-    return res.status(201).json({ booking });
-  } catch (err) {
-    next(err);
-  }
-});
-
 /**
  * GET /api/bookings/mine
- * role: user
- * query: page, limit
- * - lists current user's bookings with ride snapshot
+ * User-এর নিজের বুকিংস (ride summary সহ)
  */
 router.get(
   "/mine",
@@ -90,54 +24,28 @@ router.get(
       );
       const skip = (page - 1) * limit;
 
-      const [items, total] = await Promise.all([
-        Booking.aggregate([
-          { $match: { userId: req.authUser.uid } },
-          { $sort: { createdAt: -1 } },
-          { $skip: skip },
-          { $limit: limit },
-          {
-            $lookup: {
-              from: "rides",
-              localField: "rideId",
-              foreignField: "_id",
-              as: "ride",
-            },
-          },
-          { $unwind: "$ride" },
-          {
-            $project: {
-              _id: 1,
-              status: 1,
-              seats: 1,
-              amount: 1,
-              passengerName: 1,
-              phone: 1,
-              note: 1,
-              createdAt: 1,
-              "ride._id": 1,
-              "ride.from": 1,
-              "ride.to": 1,
-              "ride.journeyDate": 1,
-              "ride.returnDate": 1,
-              "ride.price": 1,
-              "ride.category": 1,
-              "ride.vehicleModel": 1,
-              "ride.availableSeats": 1,
-              "ride.totalSeats": 1,
-            },
-          },
-        ]),
-        Booking.countDocuments({ userId: req.authUser.uid }),
+      const q = { userId: req.authUser.uid };
+
+      const [itemsRaw, total] = await Promise.all([
+        Booking.find(q)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate({
+            path: "rideId",
+            select: "from to journeyDate returnDate category price",
+          })
+          .lean(),
+        Booking.countDocuments(q),
       ]);
 
-      return res.json({
-        items,
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
+      const items = itemsRaw.map((b) => {
+        const ride = b.rideId || null;
+        delete b.rideId;
+        return { ...b, ride };
       });
+
+      res.json({ items, total, page, pages: Math.ceil(total / limit), limit });
     } catch (err) {
       next(err);
     }
@@ -146,8 +54,7 @@ router.get(
 
 /**
  * GET /api/bookings/driver
- * role: driver
- * - lists bookings on rides that belong to this driver
+ * Driver হিসেবে আমার rides-এ হওয়া সব বুকিংস (Passenger + Phone সহ)
  */
 router.get(
   "/driver",
@@ -162,52 +69,29 @@ router.get(
       );
       const skip = (page - 1) * limit;
 
-      const [items, total] = await Promise.all([
-        Booking.aggregate([
-          { $match: { driverId: req.authUser.uid } },
-          { $sort: { createdAt: -1 } },
-          { $skip: skip },
-          { $limit: limit },
-          {
-            $lookup: {
-              from: "rides",
-              localField: "rideId",
-              foreignField: "_id",
-              as: "ride",
-            },
-          },
-          { $unwind: "$ride" },
-          {
-            $project: {
-              _id: 1,
-              status: 1,
-              seats: 1,
-              amount: 1,
-              passengerName: 1,
-              phone: 1,
-              note: 1,
-              createdAt: 1,
-              "ride._id": 1,
-              "ride.from": 1,
-              "ride.to": 1,
-              "ride.journeyDate": 1,
-              "ride.returnDate": 1,
-              "ride.price": 1,
-              "ride.category": 1,
-              "ride.vehicleModel": 1,
-            },
-          },
-        ]),
-        Booking.countDocuments({ driverId: req.authUser.uid }),
+      const q = { driverId: req.authUser.uid };
+
+      const [itemsRaw, total] = await Promise.all([
+        Booking.find(q)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .select("+contactName +contactPhone")
+          .populate({
+            path: "rideId",
+            select: "from to journeyDate returnDate category price",
+          })
+          .lean(),
+        Booking.countDocuments(q),
       ]);
 
-      return res.json({
-        items,
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
+      const items = itemsRaw.map((b) => {
+        const ride = b.rideId || null;
+        delete b.rideId;
+        return { ...b, ride };
       });
+
+      res.json({ items, total, page, pages: Math.ceil(total / limit), limit });
     } catch (err) {
       next(err);
     }
@@ -215,54 +99,224 @@ router.get(
 );
 
 /**
+ * PATCH /api/bookings/:id/accept
+ * Driver বুকিং Accept করবে → status=confirmed
+ * - যদি pending থাকে: seats ডিডাক্ট
+ * - যদি already confirmed: no-op (idempotent)
+ * - rejected/canceled/completed হলে accept ব্লক
+ */
+router.patch(
+  "/:id/accept",
+  requireAuth,
+  requireRole("driver"),
+  async (req, res, next) => {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "invalid id" });
+    }
+
+    const session = await mongoose.startSession();
+    try {
+      let result = null;
+      await session.withTransaction(async () => {
+        const b = await Booking.findById(id).session(session);
+        if (!b) {
+          const e = new Error("booking not found");
+          e.status = 404;
+          throw e;
+        }
+
+        // ensure ownership
+        if (b.driverId !== req.authUser.uid) {
+          const e = new Error("forbidden");
+          e.status = 403;
+          throw e;
+        }
+
+        // already confirmed → return as is
+        if (b.status === "confirmed") {
+          result = b;
+          return;
+        }
+
+        // invalid states
+        if (["canceled", "completed"].includes(b.status)) {
+          const e = new Error(`cannot accept a ${b.status} booking`);
+          e.status = 400;
+          throw e;
+        }
+
+        // must have ride
+        const ride = await Ride.findById(b.rideId).session(session);
+        if (!ride) {
+          const e = new Error("ride not found");
+          e.status = 404;
+          throw e;
+        }
+
+        // check seats if from pending/rejected
+        const need = b.passengers || 1;
+        if (ride.availableSeats < need) {
+          const e = new Error("Seat is not Available");
+          e.status = 409;
+          throw e;
+        }
+
+        // deduct seats & confirm
+        ride.availableSeats -= need;
+        await ride.save({ session });
+
+        b.status = "confirmed";
+        result = await b.save({ session });
+      });
+      session.endSession();
+
+      // hydrate summary
+      const hydrated = await Booking.findById(result._id)
+        .populate({
+          path: "rideId",
+          select: "from to journeyDate returnDate category price",
+        })
+        .lean();
+      const ride = hydrated?.rideId || null;
+      if (hydrated) delete hydrated.rideId;
+      res.json({ ...(hydrated || {}), ride });
+    } catch (err) {
+      session.endSession();
+      if (err?.status)
+        return res.status(err.status).json({ message: err.message });
+      next(err);
+    }
+  }
+);
+
+/**
+ * PATCH /api/bookings/:id/reject
+ * Driver বুকিং Reject করবে → status=rejected
+ * - যদি confirmed থাকে: seats ফেরত
+ * - pending হলে: শুধু status=rejected
+ */
+router.patch(
+  "/:id/reject",
+  requireAuth,
+  requireRole("driver"),
+  async (req, res, next) => {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "invalid id" });
+    }
+
+    const session = await mongoose.startSession();
+    try {
+      let result = null;
+      await session.withTransaction(async () => {
+        const b = await Booking.findById(id).session(session);
+        if (!b) {
+          const e = new Error("booking not found");
+          e.status = 404;
+          throw e;
+        }
+
+        if (b.driverId !== req.authUser.uid) {
+          const e = new Error("forbidden");
+          e.status = 403;
+          throw e;
+        }
+
+        if (["canceled", "completed"].includes(b.status)) {
+          const e = new Error(`cannot reject a ${b.status} booking`);
+          e.status = 400;
+          throw e;
+        }
+
+        // if confirmed → return seats
+        if (b.status === "confirmed") {
+          const ride = await Ride.findById(b.rideId).session(session);
+          if (ride) {
+            ride.availableSeats += b.passengers || 1;
+            await ride.save({ session });
+          }
+        }
+
+        b.status = "rejected";
+        result = await b.save({ session });
+      });
+      session.endSession();
+
+      const hydrated = await Booking.findById(result._id)
+        .populate({
+          path: "rideId",
+          select: "from to journeyDate returnDate category price",
+        })
+        .lean();
+      const ride = hydrated?.rideId || null;
+      if (hydrated) delete hydrated.rideId;
+      res.json({ ...(hydrated || {}), ride });
+    } catch (err) {
+      session.endSession();
+      if (err?.status)
+        return res.status(err.status).json({ message: err.message });
+      next(err);
+    }
+  }
+);
+
+/**
  * PATCH /api/bookings/:id/cancel
- * role: user (own booking)
- * - set status=cancelled (only if status=booked and journeyDate in future)
- * - increments ride.availableSeats back
+ * User নিজের বুকিং ক্যানসেল করলে seat ফেরত যাবে (confirmed হলে)
  */
 router.patch(
   "/:id/cancel",
   requireAuth,
   requireRole("user"),
   async (req, res, next) => {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "invalid id" });
+    }
+
+    const session = await mongoose.startSession();
     try {
-      const { id } = req.params;
-      if (!isValidObjectId(id))
-        return res.status(400).json({ message: "Invalid booking id" });
+      let updated = null;
+      await session.withTransaction(async () => {
+        const b = await Booking.findOne({
+          _id: id,
+          userId: req.authUser.uid,
+        }).session(session);
+        if (!b) {
+          const e = new Error("booking not found");
+          e.status = 404;
+          throw e;
+        }
+        if (b.status !== "confirmed") {
+          updated = b;
+          return;
+        }
 
-      const booking = await Booking.findById(id);
-      if (!booking)
-        return res.status(404).json({ message: "Booking not found" });
-      if (booking.userId !== req.authUser.uid)
-        return res.status(403).json({ message: "Forbidden" });
-      if (booking.status !== "booked")
-        return res
-          .status(400)
-          .json({ message: "Booking already cancelled/completed" });
+        await Ride.updateOne(
+          { _id: b.rideId },
+          { $inc: { availableSeats: b.passengers } }
+        ).session(session);
 
-      const ride = await Ride.findById(booking.rideId).lean();
-      if (!ride) return res.status(404).json({ message: "Ride not found" });
+        b.status = "canceled";
+        updated = await b.save({ session });
+      });
+      session.endSession();
 
-      // only allow cancel if journey is in the future
-      const now = new Date();
-      if (ride.journeyDate && new Date(ride.journeyDate) <= now) {
-        return res
-          .status(400)
-          .json({ message: "Cannot cancel on/after journey date" });
-      }
+      const hydrated = await Booking.findById(updated._id)
+        .populate({
+          path: "rideId",
+          select: "from to journeyDate returnDate category price",
+        })
+        .lean();
 
-      // 1) set booking cancelled
-      booking.status = "cancelled";
-      await booking.save();
-
-      // 2) give seats back
-      await Ride.updateOne(
-        { _id: booking.rideId },
-        { $inc: { availableSeats: booking.seats } }
-      );
-
-      return res.json({ booking });
+      const ride = hydrated?.rideId || null;
+      if (hydrated) delete hydrated.rideId;
+      res.json({ ...(hydrated || {}), ride });
     } catch (err) {
+      session.endSession();
+      if (err?.status)
+        return res.status(err.status).json({ message: err.message });
       next(err);
     }
   }

@@ -1,54 +1,47 @@
-import api from "../lib/api";
-import { auth } from "../lib/firebase";
+// returnvehicle-frontend/src/services/bookingsApi.js
+import api from "./http";
 
-async function authHeader() {
-  const token = await auth.currentUser.getIdToken();
-  return { Authorization: `Bearer ${token}` };
-}
-
-/**
- * Create a booking
- * payload: { rideId, seats, fullName, phone, note? }
- */
-export async function createBooking(payload) {
-  const res = await api.post("/api/bookings", payload, {
-    headers: await authHeader(),
-  });
-  return res.data.booking;
-}
-
-/**
- * Get current user's bookings (paginated)
- */
+/** User bookings list */
 export async function getMyBookings(page = 1, limit = 10) {
-  const res = await api.get("/api/bookings/mine", {
-    params: { page, limit },
-    headers: await authHeader(),
-  });
-  return res.data;
+  const { data } = await api.get(`/bookings/mine`, { params: { page, limit } });
+  return data;
 }
 
-/**
- * Cancel a booking (only if status=booked and journey in future)
- */
-export async function cancelBooking(id) {
-  const res = await api.patch(
-    `/api/bookings/${id}/cancel`,
-    {},
-    {
-      headers: await authHeader(),
-    }
-  );
-  return res.data.booking;
-}
-
-/**
- * Driver: list bookings on my rides (paginated)
- */
+/** Driver bookings list (bookings on my rides) */
 export async function getDriverBookings(page = 1, limit = 10) {
-  const res = await api.get("/api/bookings/driver", {
+  const { data } = await api.get(`/bookings/driver`, {
     params: { page, limit },
-    headers: await authHeader(),
   });
-  return res.data;
+  return data;
+}
+
+/** Create a booking for a ride (User)
+ * payload উদাহরণ:
+ * {
+ *   passengers: 1,
+ *   contactName: "Your Name",
+ *   contactPhone: "01XXXXXXXXX"
+ * }
+ */
+export async function createBooking(rideId, payload) {
+  const { data } = await api.post(`/rides/${rideId}/book`, payload);
+  return data;
+}
+
+/** User cancel own booking */
+export async function cancelBooking(id) {
+  const { data } = await api.patch(`/bookings/${id}/cancel`);
+  return data;
+}
+
+/** Driver accept a booking */
+export async function acceptBooking(id) {
+  const { data } = await api.patch(`/bookings/${id}/accept`);
+  return data;
+}
+
+/** Driver reject a booking */
+export async function rejectBooking(id) {
+  const { data } = await api.patch(`/bookings/${id}/reject`);
+  return data;
 }

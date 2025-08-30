@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import React, { useEffect, useState } from "react";
 import { getMyBookings, cancelBooking } from "../services/bookingsApi";
 import { toast } from "react-hot-toast";
 
@@ -16,40 +15,28 @@ function formatDate(d) {
   try {
     return new Date(d).toISOString().slice(0, 10);
   } catch {
-    return "";
+    return "—";
   }
 }
 
-function canCancel(booking) {
-  // allow cancel if status=booked AND journey date is in future
-  const jd = booking?.ride?.journeyDate
-    ? new Date(booking.ride.journeyDate)
-    : null;
-  const now = new Date();
-  return booking?.status === "booked" && jd && jd.getTime() > now.getTime();
-}
-
 export default function UserDashboard() {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [data, setData] = useState({
+  const [pageInfo, setPageInfo] = useState({
     items: [],
+    total: 0,
     page: 1,
     pages: 1,
-    total: 0,
     limit: 10,
   });
-  const [actingId, setActingId] = useState(null);
+  const [acting, setActing] = useState(false);
 
-  const fetchData = async (page = 1) => {
+  const fetchBookings = async (page = 1) => {
     setLoading(true);
-    setError("");
     try {
-      const res = await getMyBookings(page, 10);
-      setData(res);
+      const data = await getMyBookings(page, 10);
+      setPageInfo(data);
     } catch (err) {
-      setError(
+      toast.error(
         err?.response?.data?.message ||
           err?.message ||
           "Failed to load bookings"
@@ -60,111 +47,49 @@ export default function UserDashboard() {
   };
 
   useEffect(() => {
-    fetchData(1);
+    fetchBookings(1);
   }, []);
 
   const goPage = (p) => {
-    if (p < 1 || p > data.pages) return;
-    fetchData(p);
+    const next = Math.max(1, Math.min(pageInfo.pages, p));
+    fetchBookings(next);
   };
 
   const onCancel = async (id) => {
     if (!window.confirm("Cancel this booking?")) return;
     try {
-      setActingId(id);
+      setActing(true);
       const updated = await cancelBooking(id);
-      setData((prev) => ({
+      setPageInfo((prev) => ({
         ...prev,
-        items: prev.items.map((b) =>
-          b._id === updated._id ? { ...b, status: updated.status } : b
-        ),
+        items: prev.items.map((b) => (b._id === updated._id ? updated : b)),
       }));
-      toast.success("Booking cancelled");
+      toast.success("Booking canceled");
     } catch (err) {
       toast.error(
         err?.response?.data?.message || err?.message || "Cancel failed"
       );
     } finally {
-      setActingId(null);
+      setActing(false);
     }
   };
 
-  const upcoming = useMemo(
-    () =>
-      (data.items || []).filter((b) => {
-        const jd = b?.ride?.journeyDate ? new Date(b.ride.journeyDate) : null;
-        return jd && jd.getTime() >= Date.now();
-      }),
-    [data.items]
-  );
-  const past = useMemo(
-    () =>
-      (data.items || []).filter((b) => {
-        const jd = b?.ride?.journeyDate ? new Date(b.ride.journeyDate) : null;
-        return jd && jd.getTime() < Date.now();
-      }),
-    [data.items]
-  );
-
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Header */}
       <h2 className="text-2xl font-bold text-slate-900">User Dashboard</h2>
-      <p className="mt-1 text-slate-600">
-        Welcome back! Manage your bookings and profile.
+      <p className="mt-2 text-slate-600">
+        Your upcoming and past ride bookings.
       </p>
 
-      {/* Profile summary */}
-      <section className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="text-lg font-semibold text-slate-900">Profile</h3>
-          <dl className="mt-2 text-sm text-slate-700 space-y-1">
-            <div className="flex justify-between">
-              <dt>Name</dt>
-              <dd className="text-right">{user?.displayName || "—"}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt>Email</dt>
-              <dd className="text-right break-all">{user?.email || "—"}</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="text-lg font-semibold text-slate-900">Stats</h3>
-          <dl className="mt-2 text-sm text-slate-700 space-y-1">
-            <div className="flex justify-between">
-              <dt>Total bookings</dt>
-              <dd>{data.total}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt>Upcoming</dt>
-              <dd>{upcoming.length}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt>Past</dt>
-              <dd>{past.length}</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="text-lg font-semibold text-slate-900">Quick Tips</h3>
-          <ul className="mt-2 text-sm text-slate-700 list-disc pl-5 space-y-1">
-            <li>You can cancel before journey date.</li>
-            <li>Seat count and total fare are shown per booking.</li>
-          </ul>
-        </div>
-      </section>
-
-      {/* Bookings list */}
-      <section className="mt-8">
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-900">My Bookings</h3>
           {loading ? (
             <Spinner />
           ) : (
-            <span className="text-sm text-slate-600">{data.total} total</span>
+            <span className="text-sm text-slate-600">
+              {pageInfo.total} total
+            </span>
           )}
         </div>
 
@@ -172,84 +97,100 @@ export default function UserDashboard() {
           <div className="mt-4">
             <Spinner label="Loading bookings..." />
           </div>
-        ) : error ? (
-          <p className="mt-4 text-slate-700">{error}</p>
-        ) : (data.items || []).length === 0 ? (
-          <p className="mt-4 text-slate-700">You have no bookings yet.</p>
+        ) : (pageInfo.items || []).length === 0 ? (
+          <p className="mt-2 text-slate-600">No bookings yet.</p>
         ) : (
           <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50">
                 <tr className="text-left text-slate-700">
+                  <th className="px-4 py-3">Booking Code</th>
                   <th className="px-4 py-3">Route</th>
                   <th className="px-4 py-3">Dates</th>
-                  <th className="px-4 py-3">Vehicle</th>
                   <th className="px-4 py-3">Seats</th>
                   <th className="px-4 py-3">Amount</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                  <th className="px-4 py-3">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((b) => (
-                  <tr key={b._id} className="border-t border-slate-200">
-                    <td className="px-4 py-3 text-slate-900">
-                      {b?.ride?.from} → {b?.ride?.to}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {b?.ride?.journeyDate
-                        ? formatDate(b.ride.journeyDate)
-                        : "—"}
-                      {b?.ride?.returnDate
-                        ? ` • ${formatDate(b.ride.returnDate)}`
-                        : ""}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {b?.ride?.vehicleModel || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">{b?.seats}</td>
-                    <td className="px-4 py-3 text-slate-900 font-medium">
-                      ৳ {b?.amount}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
-                        {b?.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        disabled={!canCancel(b) || actingId === b._id}
-                        onClick={() => onCancel(b._id)}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 text-white hover:opacity-90 disabled:opacity-60"
-                      >
-                        {actingId === b._id ? "Cancelling…" : "Cancel"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {pageInfo.items.map((b) => {
+                  const journey = b?.ride?.journeyDate
+                    ? formatDate(b.ride.journeyDate)
+                    : "—";
+                  const back = b?.ride?.returnDate
+                    ? formatDate(b.ride.returnDate)
+                    : "";
+                  const amount =
+                    b.totalPrice ??
+                    b.amount ??
+                    (b.pricePerSeat || 0) * (b.passengers || 1);
+                  const canCancel =
+                    b.status === "confirmed" || b.status === "pending";
+
+                  return (
+                    <tr key={b._id} className="border-t border-slate-200">
+                      <td className="px-4 py-3 text-slate-900">
+                        {b.bookingCode || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {b?.ride?.from || "—"} → {b?.ride?.to || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {journey}
+                        {back ? ` • ${back}` : ""}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {b.passengers ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-900 font-medium">
+                        ৳ {amount}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
+                          {b.status || "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => onCancel(b._id)}
+                          disabled={!canCancel || acting}
+                          className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 disabled:opacity-60 hover:bg-slate-50"
+                          title={
+                            canCancel
+                              ? "Cancel booking"
+                              : "Cannot cancel this booking"
+                          }
+                        >
+                          Cancel
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
 
-        {/* Pagination */}
-        {!loading && data.pages > 1 && (
-          <div className="mt-4 flex items-center justify-center gap-2">
+        {!loading && pageInfo.pages > 1 && (
+          <div className="mt-6 flex items-center justify-center gap-2">
             <button
               className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 disabled:opacity-60"
-              onClick={() => goPage(data.page - 1)}
-              disabled={data.page <= 1}
+              onClick={() => goPage(pageInfo.page - 1)}
+              disabled={pageInfo.page <= 1}
             >
               Prev
             </button>
             <span className="text-sm text-slate-700">
-              Page <strong className="text-slate-900">{data.page}</strong> of{" "}
-              {data.pages}
+              Page <strong className="text-slate-900">{pageInfo.page}</strong>{" "}
+              of {pageInfo.pages}
             </span>
             <button
               className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 disabled:opacity-60"
-              onClick={() => goPage(data.page + 1)}
-              disabled={data.page >= data.pages}
+              onClick={() => goPage(pageInfo.page + 1)}
+              disabled={pageInfo.page >= pageInfo.pages}
             >
               Next
             </button>

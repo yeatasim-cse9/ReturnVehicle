@@ -21,22 +21,23 @@ export default function SearchPage() {
     total: 0,
     page: 1,
     pages: 1,
-    limit: 10,
+    limit: 12,
   });
 
+  // 🧭 normalize query for backend
   const query = useMemo(() => {
+    const dateParam = sp.get("date") || sp.get("journeyDate") || "";
+    const minP = sp.get("minPrice") || sp.get("priceMin") || "";
+    const maxP = sp.get("maxPrice") || sp.get("priceMax") || "";
     const q = {
       from: sp.get("from") || "",
       to: sp.get("to") || "",
-      journeyDate: sp.get("journeyDate") || "",
-      returnDate: sp.get("returnDate") || "",
+      date: dateParam, // backend expects `date`
       category: sp.get("category") || "",
-      passengers: sp.get("passengers") || "1",
-      sort: sp.get("sort") || "date_asc",
-      priceMin: sp.get("priceMin") || "",
-      priceMax: sp.get("priceMax") || "",
+      minPrice: minP, // backend expects `minPrice`
+      maxPrice: maxP, // backend expects `maxPrice`
       page: sp.get("page") || "1",
-      limit: sp.get("limit") || "10",
+      limit: sp.get("limit") || "12",
     };
     return q;
   }, [sp]);
@@ -49,7 +50,13 @@ export default function SearchPage() {
       try {
         const res = await searchRides(query);
         if (!mounted) return;
-        setData(res);
+        setData({
+          items: res.items || [],
+          total: res.total || 0,
+          page: res.page || 1,
+          pages: res.pages || 1,
+          limit: res.limit || Number(query.limit) || 12,
+        });
       } catch (err) {
         if (!mounted) return;
         setError(
@@ -65,17 +72,34 @@ export default function SearchPage() {
     };
   }, [query]);
 
+  // 🎛️ Filters apply → set both (minPrice & priceMin) for safety
   const applyFilters = (e) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const next = new URLSearchParams(sp);
-    next.set("sort", form.get("sort"));
+
+    const sort = form.get("sort");
+    if (sort) next.set("sort", sort);
+
     const pmin = form.get("priceMin")?.trim();
     const pmax = form.get("priceMax")?.trim();
-    if (pmin) next.set("priceMin", pmin);
-    else next.delete("priceMin");
-    if (pmax) next.set("priceMax", pmax);
-    else next.delete("priceMax");
+
+    // write canonical keys
+    if (pmin) {
+      next.set("minPrice", pmin);
+      next.set("priceMin", pmin);
+    } else {
+      next.delete("minPrice");
+      next.delete("priceMin");
+    }
+    if (pmax) {
+      next.set("maxPrice", pmax);
+      next.set("priceMax", pmax);
+    } else {
+      next.delete("maxPrice");
+      next.delete("priceMax");
+    }
+
     next.set("page", "1");
     setSp(next);
   };
@@ -84,6 +108,7 @@ export default function SearchPage() {
     const next = new URLSearchParams(sp);
     next.set("page", String(p));
     setSp(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -98,9 +123,9 @@ export default function SearchPage() {
               </>
             )}
             {query.to && <strong className="text-slate-900">{query.to}</strong>}
-            {query.journeyDate && <> • {query.journeyDate}</>}
-            {query.category && <> • {query.category}</>}
-            {query.passengers && <> • {query.passengers} pax</>}
+            {query.date && <> • {query.date}</>}
+            {sp.get("category") && <> • {sp.get("category")}</>}
+            {sp.get("passengers") && <> • {sp.get("passengers")} pax</>}
           </p>
         </div>
 
@@ -114,7 +139,7 @@ export default function SearchPage() {
               <label className="block text-xs text-slate-700">Sort</label>
               <select
                 name="sort"
-                defaultValue={query.sort}
+                defaultValue={sp.get("sort") || "date_asc"}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-slate-900"
               >
                 <option value="date_asc">Date ↑</option>
@@ -128,7 +153,7 @@ export default function SearchPage() {
               <input
                 type="number"
                 name="priceMin"
-                defaultValue={query.priceMin}
+                defaultValue={sp.get("minPrice") || sp.get("priceMin") || ""}
                 min={0}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-slate-900"
               />
@@ -138,7 +163,7 @@ export default function SearchPage() {
               <input
                 type="number"
                 name="priceMax"
-                defaultValue={query.priceMax}
+                defaultValue={sp.get("maxPrice") || sp.get("priceMax") || ""}
                 min={0}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-slate-900"
               />
@@ -171,9 +196,13 @@ export default function SearchPage() {
         </div>
       ) : (
         <>
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {data.items.map((r) => (
-              <RideCard key={r._id} ride={r} passengers={query.passengers} />
+              <RideCard
+                key={r._id}
+                ride={r}
+                passengers={sp.get("passengers") || "1"}
+              />
             ))}
           </div>
 

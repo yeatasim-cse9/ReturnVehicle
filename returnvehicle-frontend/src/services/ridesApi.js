@@ -1,67 +1,114 @@
-import api from "../lib/api";
-import { auth } from "../lib/firebase";
+// frontend/src/services/ridesApi.js
+// All Ride-related API calls.
+// Uses the pre-configured Axios instance at ../lib/api which adds baseURL & Auth header.
 
-async function authHeader() {
-  const user = auth.currentUser;
-  if (!user) throw new Error("Not authenticated");
-  const token = await user.getIdToken();
-  return { Authorization: `Bearer ${token}` };
+import api from "../lib/api";
+
+/** Normalize and rethrow readable errors */
+function unwrapError(err) {
+  const msg =
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    err?.message ||
+    "Request failed";
+  const e = new Error(msg);
+  e.status = err?.response?.status;
+  e.data = err?.response?.data;
+  throw e;
 }
 
 /**
- * Create a ride (driver)
- * payload: {
- *   from, to, journeyDate, returnDate?, category, price,
- *   vehicleModel, totalSeats, availableSeats, imageUrl?
+ * Create a new ride (Driver only)
+ * Backend: POST /api/rides
+ * Body: {
+ *  from, to, journeyDate, returnDate?, category('Ambulance'|'Car'|'Truck'),
+ *  price(Number), vehicleModel, totalSeats(Number), availableSeats(Number),
+ *  imageUrl?
  * }
+ * Returns: { ride }
  */
 export async function createRide(payload) {
-  const res = await api.post("/api/rides", payload, {
-    headers: await authHeader(),
-  });
-  return res.data.ride;
-}
-
-export async function getRideById(id) {
-  const res = await api.get(`/api/rides/${id}`);
-  return res.data.ride;
+  try {
+    const res = await api.post("/api/rides", payload);
+    return res.data?.ride || res.data;
+  } catch (err) {
+    unwrapError(err);
+  }
 }
 
 /**
- * Driver: list own rides
+ * Get "My Rides" for current driver (paginated)
+ * Backend: GET /api/rides/mine?page=&limit=
+ * Returns: { items, total, page, pages, limit }
  */
-export async function getMyRides(page = 1, limit = 20) {
-  const res = await api.get("/api/rides/mine", {
-    params: { page, limit },
-    headers: await authHeader(),
-  });
-  return res.data;
+export async function getMyRides(page = 1, limit = 12) {
+  try {
+    const res = await api.get("/api/rides/mine", { params: { page, limit } });
+    return res.data;
+  } catch (err) {
+    unwrapError(err);
+  }
 }
 
 /**
- * Driver: update ride
+ * Update a ride (only the owner driver)
+ * Backend: PATCH /api/rides/:id
+ * Body: partial fields to update
+ * Returns: { ride }
  */
-export async function updateRide(id, payload) {
-  const res = await api.patch(`/api/rides/${id}`, payload, {
-    headers: await authHeader(),
-  });
-  return res.data.ride;
+export async function updateRide(id, patch = {}) {
+  try {
+    const res = await api.patch(`/api/rides/${id}`, patch);
+    return res.data?.ride || res.data;
+  } catch (err) {
+    unwrapError(err);
+  }
 }
 
 /**
- * Driver: delete ride
+ * Delete a ride (only the owner driver)
+ * Backend: DELETE /api/rides/:id
+ * Returns: { deleted: true }
  */
 export async function deleteRide(id) {
-  const res = await api.delete(`/api/rides/${id}`, {
-    headers: await authHeader(),
-  });
-  return res.data;
+  try {
+    const res = await api.delete(`/api/rides/${id}`);
+    return res.data;
+  } catch (err) {
+    unwrapError(err);
+  }
+}
+
+/**
+ * Public: Get a ride by id
+ * Backend: GET /api/rides/:id
+ * Returns: { ride }
+ */
+export async function getRideById(id) {
+  try {
+    const res = await api.get(`/api/rides/${id}`);
+    return res.data?.ride || res.data;
+  } catch (err) {
+    unwrapError(err);
+  }
 }
 
 /**
  * Public search
+ * Backend (as implemented): GET /api/rides
+ * Query params supported on backend:
+ *  - from, to (string)
+ *  - date (ISO date string, e.g. '2025-09-01')
+ *  - category ('Ambulance'|'Car'|'Truck')
+ *  - minPrice, maxPrice (numbers)
+ *  - page, limit (numbers)
+ * Returns: { items, total, page, pages, limit }
  */
-export async function searchRides(params) {
-  const res = await api.get("/api/rides/search", { params });
-  return res.data;
+export async function searchRides(params = {}) {
+  try {
+    const res = await api.get("/api/rides", { params });
+    return res.data;
+  } catch (err) {
+    unwrapError(err);
+  }
 }

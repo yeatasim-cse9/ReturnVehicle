@@ -1,52 +1,78 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
-function formatDate(d) {
-  try {
-    return new Date(d).toISOString().slice(0, 10);
-  } catch {
-    return "";
-  }
-}
+export default function RideCard({ ride }) {
+  const [broken, setBroken] = useState(false);
+  const jd = ride?.journeyDate
+    ? new Date(ride.journeyDate).toISOString().slice(0, 10)
+    : "—";
+  const rd = ride?.returnDate
+    ? new Date(ride.returnDate).toISOString().slice(0, 10)
+    : null;
+  const soldOut =
+    typeof ride?.availableSeats === "number" && ride.availableSeats <= 0;
 
-export default function RideCard({ ride, passengers = 1 }) {
-  const noSeat = Number(ride.availableSeats) < Number(passengers);
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 hover:shadow transition">
-      <div className="flex items-start justify-between">
-        <h4 className="text-lg font-semibold text-slate-900">
-          {ride.from} → {ride.to}
-        </h4>
-        <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
-          {ride.category}
-        </span>
-      </div>
-      <p className="mt-1 text-slate-600 text-sm">
-        Journey: {formatDate(ride.journeyDate)}
-        {ride.returnDate ? ` • Return: ${formatDate(ride.returnDate)}` : ""}
-      </p>
-      <p className="mt-1 text-slate-600 text-sm">
-        Vehicle: {ride.vehicleModel} • Seats: {ride.availableSeats}/
-        {ride.totalSeats}
-      </p>
-      <div className="mt-3 flex items-center justify-between">
-        <p className="text-slate-900 font-semibold">৳ {ride.price}</p>
-        <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
-          {ride.status}
-        </span>
-      </div>
-      {noSeat ? (
-        <div className="mt-4 w-full text-center px-4 py-2.5 rounded-xl bg-slate-200 text-slate-700">
-          Seat is not Available
-        </div>
+    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+      {/* Image */}
+      {ride?.imageUrl && !broken ? (
+        <img
+          src={ride.imageUrl}
+          alt={`${ride.from} to ${ride.to}`}
+          className="h-44 w-full object-cover"
+          loading="lazy"
+          onError={() => setBroken(true)}
+        />
       ) : (
-        <Link
-          to={`/booking/${ride._id}`}
-          className="mt-4 inline-block w-full text-center px-4 py-2.5 rounded-xl bg-slate-900 text-white hover:opacity-90"
-        >
-          View & Book
-        </Link>
+        <div className="h-44 w-full bg-slate-100 flex items-center justify-center text-slate-500 text-sm">
+          No image
+        </div>
       )}
-    </article>
+
+      {/* Body */}
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="text-base font-semibold text-slate-900">
+            {ride.from} → {ride.to}
+          </h4>
+          <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
+            {ride.category}
+          </span>
+        </div>
+
+        <p className="mt-1 text-sm text-slate-700">
+          {jd}
+          {rd ? ` • ${rd}` : ""}
+        </p>
+
+        <p className="mt-1 text-sm text-slate-700">
+          {ride.vehicleModel || "—"}
+        </p>
+
+        <div className="mt-2 flex items-center justify-between">
+          <p className="text-base font-semibold text-slate-900">
+            ৳ {ride.price}
+          </p>
+          {soldOut ? (
+            <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-700">
+              Seat is not Available
+            </span>
+          ) : (
+            <span className="text-xs text-slate-600">
+              {ride.availableSeats ?? "—"}/{ride.totalSeats ?? "—"} seats
+            </span>
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-end">
+          <Link
+            to={`/booking/${ride._id}`}
+            className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90"
+          >
+            View
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
