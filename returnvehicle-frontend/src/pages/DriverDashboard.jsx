@@ -25,6 +25,27 @@ function formatDate(d) {
   }
 }
 
+/* ---- Helpers: Bengali → English digits ---- */
+const bnToEnMap = {
+  "০": "0",
+  "১": "1",
+  "২": "2",
+  "৩": "3",
+  "৪": "4",
+  "৫": "5",
+  "৬": "6",
+  "৭": "7",
+  "৮": "8",
+  "৯": "9",
+};
+function normalizeDigits(str) {
+  return String(str ?? "").replace(/[০-৯]/g, (d) => bnToEnMap[d] || d);
+}
+function onlyInts(str) {
+  // 1) convert Bengali digits to English 2) keep only ASCII digits 0-9
+  return normalizeDigits(str).replace(/[^\d]/g, "");
+}
+
 export default function DriverDashboard() {
   const [tab, setTab] = useState("rides"); // 'rides' | 'bookings'
 
@@ -108,12 +129,13 @@ export default function DriverDashboard() {
     setRides((prev) => [ride, ...prev]);
   };
 
+  // Start edit with strings
   const startEdit = (r) => {
     setEditingId(r._id);
     setEdit({
-      price: r.price,
-      availableSeats: r.availableSeats,
-      totalSeats: r.totalSeats,
+      price: String(r.price ?? ""),
+      availableSeats: String(r.availableSeats ?? ""),
+      totalSeats: String(r.totalSeats ?? ""),
       vehicleModel: r.vehicleModel,
       status: r.status || "available",
     });
@@ -355,11 +377,15 @@ export default function DriverDashboard() {
                             Price
                           </label>
                           <input
-                            type="number"
-                            min={1}
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={edit.price}
                             onChange={(e) =>
-                              setEdit((p) => ({ ...p, price: e.target.value }))
+                              setEdit((p) => ({
+                                ...p,
+                                price: onlyInts(e.target.value),
+                              }))
                             }
                             className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
                           />
@@ -385,14 +411,14 @@ export default function DriverDashboard() {
                             Total Seats
                           </label>
                           <input
-                            type="number"
-                            min={1}
-                            max={50}
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={edit.totalSeats}
                             onChange={(e) =>
                               setEdit((p) => ({
                                 ...p,
-                                totalSeats: e.target.value,
+                                totalSeats: onlyInts(e.target.value),
                               }))
                             }
                             className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
@@ -403,14 +429,14 @@ export default function DriverDashboard() {
                             Available Seats
                           </label>
                           <input
-                            type="number"
-                            min={0}
-                            max={edit.totalSeats || 50}
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={edit.availableSeats}
                             onChange={(e) =>
                               setEdit((p) => ({
                                 ...p,
-                                availableSeats: e.target.value,
+                                availableSeats: onlyInts(e.target.value),
                               }))
                             }
                             className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
