@@ -8,8 +8,7 @@ import {
 import { auth } from "../lib/firebase";
 import { updateProfile as fbUpdateProfile } from "firebase/auth";
 import { Link } from "react-router-dom";
-import { User as UserIcon, Mail, ArrowLeft, Smartphone } from "lucide-react"; // Smartphone আইকন যোগ করা হয়েছে
-
+import { User as UserIcon, Mail, ArrowLeft, Smartphone } from "lucide-react";
 // ... Avatar component ...
 function Avatar({ photoURL, email, size = 96 }) {
   const letter = (email || "").trim().charAt(0).toUpperCase();
@@ -41,7 +40,7 @@ export default function ProfileEdit() {
     displayName: "",
     email: "",
     photoURL: "",
-    phoneNumber: "", // form state-এ phoneNumber যোগ করা হয়েছে
+    phoneNumber: "",
   });
 
   useEffect(() => {

@@ -10,7 +10,6 @@ async function authHeader() {
 
 /**
  * Admin: list users (paginated)
- * filters: { query, role, status, page, limit }
  */
 export async function adminListUsers({
   query = "",
@@ -23,12 +22,11 @@ export async function adminListUsers({
     params: { query, role, status, page, limit },
     headers: await authHeader(),
   });
-  return res.data; // { items, total, page, pages, limit }
+  return res.data;
 }
 
 /**
  * Admin: update a user (role/status)
- * payload: { role?, status? }
  */
 export async function adminUpdateUser(uid, payload) {
   const res = await api.patch(`/api/admin/users/${uid}`, payload, {
@@ -39,20 +37,13 @@ export async function adminUpdateUser(uid, payload) {
 
 /**
  * Admin: list rides (paginated)
- * filters: { query, status, category, page, limit }
  */
-export async function adminListRides({
-  query = "",
-  status = "",
-  category = "",
-  page = 1,
-  limit = 10,
-} = {}) {
+export async function adminListRides({ page = 1, limit = 10 } = {}) {
   const res = await api.get("/api/admin/rides", {
-    params: { query, status, category, page, limit },
+    params: { page, limit },
     headers: await authHeader(),
   });
-  return res.data; // { items, total, page, pages, limit }
+  return res.data;
 }
 
 /**
