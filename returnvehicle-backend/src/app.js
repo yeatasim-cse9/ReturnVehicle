@@ -13,6 +13,7 @@ import ridesRoutes from "./routes/rides.routes.js";
 import bookingsRoutes from "./routes/bookings.routes.js";
 import locationsRoutes from "./routes/locations.routes.js";
 import uploadsRoutes from "./routes/uploads.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use("/api/rides", ridesRoutes);
 app.use("/api/bookings", bookingsRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/uploads", uploadsRoutes);
+app.use("/api/admin", adminRoutes);
 
 // ---- Inline fallback auth endpoints (guarantee NO 404 for whoami/set-role) ----
 // GET /api/auth/whoami
