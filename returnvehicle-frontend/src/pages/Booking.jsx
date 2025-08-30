@@ -1,5 +1,5 @@
 // returnvehicle-frontend/src/pages/Booking.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { getRideById } from "../services/ridesApi";
@@ -7,7 +7,7 @@ import { createBooking } from "../services/bookingsApi";
 
 function Spinner({ label = "Loading..." }) {
   return (
-    <div className="flex items-center gap-2 text-slate-600 text-sm">
+    <div className="inline-flex items-center gap-2 text-slate-600 text-sm">
       <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
       {label}
     </div>
@@ -23,18 +23,26 @@ function fmt(d) {
 }
 
 export default function BookingPage() {
-  const { id } = useParams();
+  const { id } = useParams(); // /booking/:id
   const navigate = useNavigate();
 
   const [ride, setRide] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
+  // form state
   const [passengers, setPassengers] = useState(1);
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showOk, setShowOk] = useState(false);
+
+  // price calc
+  const total = useMemo(() => {
+    const p = Number(passengers || 0);
+    const price = Number(ride?.price || 0);
+    return p > 0 && price > 0 ? p * price : 0;
+  }, [passengers, ride]);
 
   useEffect(() => {
     let mounted = true;
@@ -44,8 +52,12 @@ export default function BookingPage() {
       try {
         const data = await getRideById(id);
         if (!mounted) return;
-        setRide(data);
-        setPassengers(data?.availableSeats > 0 ? 1 : 0);
+        setRide(data || null);
+        if ((data?.availableSeats ?? 0) > 0) {
+          setPassengers(1);
+        } else {
+          setPassengers(0);
+        }
       } catch (e) {
         if (!mounted) return;
         setErr(
@@ -87,6 +99,8 @@ export default function BookingPage() {
       const msg = e?.response?.data?.message || e?.message || "Booking failed";
       if (/Seat is not Available/i.test(msg)) {
         toast.error("Seat is not Available");
+      } else if (/Unauthorized|401/i.test(msg)) {
+        toast.error("Please log in to book.");
       } else {
         toast.error(msg);
       }
@@ -101,185 +115,263 @@ export default function BookingPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10">
-      <h2 className="text-3xl font-bold text-slate-900 mb-2">
-        Confirm Your Booking
-      </h2>
-      <p className="text-slate-600 mb-6">
-        Please review ride details and complete your passenger information.
-      </p>
-
-      {loading ? (
-        <div className="mt-6">
-          <Spinner label="Loading ride..." />
-        </div>
-      ) : err ? (
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
-          <p className="text-slate-700">{err}</p>
-          <Link
-            to="/"
-            className="mt-3 inline-block px-4 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90"
-          >
-            Back to Home
-          </Link>
-        </div>
-      ) : !ride ? (
-        <p className="mt-6 text-slate-600">Ride not found.</p>
-      ) : (
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-6">
-          {/* Ride Summary */}
-          <aside className="md:col-span-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="text-lg font-semibold text-slate-900">
-                {ride.from} → {ride.to}
-              </h3>
-              <div className="mt-3 space-y-1 text-sm text-slate-700">
-                {ride.journeyDate && (
-                  <p>
-                    <strong>Journey:</strong> {fmt(ride.journeyDate)}
-                  </p>
-                )}
-                {ride.returnDate && (
-                  <p>
-                    <strong>Return:</strong> {fmt(ride.returnDate)}
-                  </p>
-                )}
-                <p>
-                  <strong>Category:</strong> {ride.category}
-                </p>
-                <p>
-                  <strong>Vehicle:</strong> {ride.vehicleModel}
-                </p>
-                <p>
-                  <strong>Price:</strong> ৳ {ride.price} / seat
-                </p>
-                <p>
-                  <strong>Seats available:</strong> {ride.availableSeats ?? "—"}
-                  /{ride.totalSeats ?? "—"}
-                </p>
-              </div>
-              {ride.imageUrl && (
-                <img
-                  src={ride.imageUrl}
-                  alt="vehicle"
-                  className="mt-4 h-40 w-full rounded-xl object-cover border border-slate-200"
-                />
-              )}
-            </div>
-          </aside>
-
-          {/* Booking Form */}
-          <section className="md:col-span-3">
-            <form
-              onSubmit={onSubmit}
-              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+    <div className="min-h-[70vh] bg-slate-50">
+      {/* Header Bar */}
+      <div className="border-b border-slate-200 bg-white">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link
+              to="/search"
+              className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
             >
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                Passenger Details
-              </h3>
+              ← Back
+            </Link>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900">
+              Book your ride
+            </h1>
+          </div>
+          <div className="hidden md:block text-sm text-slate-600">
+            Secure & quick booking
+          </div>
+        </div>
+      </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-slate-700">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={contactName}
-                    onChange={(e) => setContactName(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400 transition-shadow"
-                    placeholder="John Doe"
-                    required
-                  />
+      {/* Content */}
+      <div className="max-w-6xl mx-auto px-4 py-6 md:py-10">
+        {loading ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <Spinner label="Loading ride..." />
+          </div>
+        ) : err ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <p className="text-slate-700">{err}</p>
+            <Link
+              to="/"
+              className="mt-3 inline-block px-4 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90"
+            >
+              Back to Home
+            </Link>
+          </div>
+        ) : !ride ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <p className="text-slate-700">Ride not found.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left: Ride Card */}
+            <aside className="lg:col-span-1">
+              <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                {/* Top banner */}
+                <div className="bg-gradient-to-r from-slate-900 to-slate-700 px-5 py-4 text-white">
+                  <div className="text-sm opacity-90">Route</div>
+                  <div className="text-lg font-semibold">
+                    {ride.from} → {ride.to}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm text-slate-700">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={contactPhone}
-                    onChange={(e) => setContactPhone(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400 transition-shadow"
-                    placeholder="01XXXXXXXXX"
-                    required
+
+                {/* Image */}
+                {ride.imageUrl ? (
+                  <img
+                    src={ride.imageUrl}
+                    alt="vehicle"
+                    className="h-44 w-full object-cover"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm text-slate-700">Seats</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={ride.availableSeats || 50}
-                    value={passengers}
-                    onChange={(e) => setPassengers(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400 transition-shadow"
-                    required
-                  />
-                  <p className="mt-1 text-xs text-slate-600">
-                    Max {ride.availableSeats || 0} seats available
+                ) : (
+                  <div className="h-44 w-full bg-slate-100 flex items-center justify-center text-slate-500">
+                    No image
+                  </div>
+                )}
+
+                {/* Info */}
+                <div className="p-5 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
+                      {ride.category}
+                    </span>
+                    <span className="inline-flex items-center text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
+                      ৳ {ride.price}/seat
+                    </span>
+                    <span className="inline-flex items-center text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
+                      Seats: {ride.availableSeats ?? "—"}/
+                      {ride.totalSeats ?? "—"}
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-slate-700">
+                    {ride.journeyDate ? (
+                      <>
+                        <span className="text-slate-900 font-medium">
+                          Journey:
+                        </span>{" "}
+                        {fmt(ride.journeyDate)}
+                      </>
+                    ) : null}
+                    {ride.returnDate ? (
+                      <>
+                        {" "}
+                        •{" "}
+                        <span className="text-slate-900 font-medium">
+                          Return:
+                        </span>{" "}
+                        {fmt(ride.returnDate)}
+                      </>
+                    ) : null}
+                  </p>
+
+                  <p className="text-sm text-slate-700">
+                    <span className="text-slate-900 font-medium">Vehicle:</span>{" "}
+                    {ride.vehicleModel}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <button
-                  type="submit"
-                  disabled={submitting || (ride.availableSeats || 0) < 1}
-                  className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-900 text-white hover:opacity-90 disabled:opacity-60 transition-all"
-                >
-                  {submitting ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                      Booking…
-                    </>
-                  ) : (
-                    "Confirm Booking"
-                  )}
-                </button>
-                <Link
-                  to="/search"
-                  className="px-5 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
-                >
-                  Back to Search
-                </Link>
+              {/* Sticky price summary */}
+              <div className="mt-6 lg:mt-8 lg:sticky lg:top-6">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <h4 className="text-base font-semibold text-slate-900">
+                    Price summary
+                  </h4>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-600">Per seat</span>
+                      <span className="text-slate-900">৳ {ride.price}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-600">Seats</span>
+                      <span className="text-slate-900">{passengers || 0}</span>
+                    </div>
+                    <hr className="my-2 border-slate-200" />
+                    <div className="flex items-center justify-between text-base font-semibold">
+                      <span className="text-slate-900">Total</span>
+                      <span className="text-slate-900">৳ {total}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </form>
-          </section>
-        </div>
-      )}
+            </aside>
+
+            {/* Right: Form */}
+            <section className="lg:col-span-2">
+              <form
+                onSubmit={onSubmit}
+                className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg md:text-xl font-semibold text-slate-900">
+                    Passenger details
+                  </h3>
+                  {ride.availableSeats > 0 ? (
+                    <span className="inline-flex items-center text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
+                      {ride.availableSeats} seats available
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-800">
+                      Seat is not Available
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-slate-700">Name</label>
+                    <input
+                      type="text"
+                      value={contactName}
+                      onChange={(e) => setContactName(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      placeholder="Your full name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-700">
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      placeholder="01XXXXXXXXX"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-700">
+                      Seats
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={ride.availableSeats || 50}
+                      value={passengers}
+                      onChange={(e) => setPassengers(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      required
+                    />
+                    <p className="mt-1 text-xs text-slate-600">
+                      Max {ride.availableSeats || 0} seats available
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={submitting || (ride.availableSeats || 0) < 1}
+                    className="px-5 py-3 rounded-xl bg-slate-900 text-white hover:opacity-90 disabled:opacity-60"
+                  >
+                    {submitting ? "Booking…" : "Confirm Booking"}
+                  </button>
+                  <Link
+                    to="/search"
+                    className="px-5 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50 text-center"
+                  >
+                    Back to Search
+                  </Link>
+                </div>
+              </form>
+
+              {/* Helpful note */}
+              <div className="mt-4 text-sm text-slate-600">
+                After you confirm, your booking will be{" "}
+                <span className="text-slate-900 font-medium">pending</span>{" "}
+                until the driver accepts. You can manage/cancel it from{" "}
+                <Link to="/user/dashboard" className="underline">
+                  My Bookings
+                </Link>
+                .
+              </div>
+            </section>
+          </div>
+        )}
+      </div>
 
       {/* Success Modal */}
       {showOk && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl animate-fade-in">
-            <div className="flex justify-center mb-3">
-              <svg
-                className="w-10 h-10 text-green-500"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl">
+            <div className="mx-auto h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center">
+              <span className="text-xl text-slate-900">✓</span>
             </div>
-            <h4 className="text-xl font-semibold text-slate-900">
+            <h4 className="mt-3 text-xl font-semibold text-slate-900">
               Booking Confirmed
             </h4>
             <p className="mt-2 text-slate-700">
-              Your booking is placed and pending driver confirmation.
+              Your booking is placed. We’ll notify you when the driver accepts.
             </p>
-            <div className="mt-4">
+            <div className="mt-5 flex items-center justify-center gap-3">
               <button
                 onClick={closeModal}
                 className="px-5 py-2.5 rounded-xl bg-slate-900 text-white hover:opacity-90"
               >
                 Go to My Bookings
+              </button>
+              <button
+                onClick={() => setShowOk(false)}
+                className="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+              >
+                Stay here
               </button>
             </div>
           </div>
