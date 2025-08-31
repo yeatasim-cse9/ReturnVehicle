@@ -1,7 +1,9 @@
 // src/components/Footer.jsx
 import React from "react";
 import { Link } from "react-router-dom";
-import { CarTaxiFront, Github, Twitter, Facebook } from "lucide-react";
+import { CarTaxiFront } from "lucide-react";
+import { FaGithub, FaFacebook } from "react-icons/fa";
+import { FaSquareXTwitter } from "react-icons/fa6";
 
 export default function Footer() {
   return (
@@ -113,13 +115,13 @@ export default function Footer() {
           </p>
           <div className="flex items-center gap-4 mt-4 md:mt-0">
             <a href="#" className="text-slate-500 hover:text-slate-800">
-              <Twitter size={20} />
+              <FaSquareXTwitter size={20} />
             </a>
             <a href="#" className="text-slate-500 hover:text-slate-800">
-              <Facebook size={20} />
+              <FaFacebook size={20} />
             </a>
             <a href="#" className="text-slate-500 hover:text-slate-800">
-              <Github size={20} />
+              <FaGithub size={20} />
             </a>
           </div>
         </div>

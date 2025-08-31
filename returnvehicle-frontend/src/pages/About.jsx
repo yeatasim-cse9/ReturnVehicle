@@ -34,7 +34,6 @@ export default function About() {
         {/* Mission */}
         <section className="rounded-2xl border border-slate-200 bg-white p-6">
           <div className="flex items-start gap-4">
-            <Sparkles className="h-6 w-6 text-slate-800 mt-1" />
             <div>
               <h2 className="text-xl font-semibold text-slate-900">
                 Our mission
