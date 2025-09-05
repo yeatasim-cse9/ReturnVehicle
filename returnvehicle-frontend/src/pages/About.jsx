@@ -16,14 +16,23 @@ import {
 
 export default function About() {
   return (
-    <div className="min-h-[70vh] bg-gradient-to-b from-slate-50 to-white">
-      {/* Hero */}
-      <div className="border-b border-slate-200 bg-gradient-to-r from-slate-900 to-slate-700">
-        <div className="max-w-6xl mx-auto px-4 py-10 text-white">
+    <div className="min-h-[70vh] relative">
+      {/* Decorative background (subtle) */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10"
+      >
+        <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-slate-300/30 blur-3xl" />
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-slate-200/30 blur-3xl" />
+      </div>
+
+      {/* Glass header */}
+      <div className="border-b border-white/20 bg-white/30 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-4 py-10 text-slate-900">
           <h1 className="text-2xl md:text-3xl font-bold">
             About ReturnVehicle
           </h1>
-          <p className="mt-2 text-white/90">
+          <p className="mt-2 text-slate-700">
             A simple, role-based platform to post and book rides across
             Bangladesh with confidence.
           </p>
@@ -31,8 +40,8 @@ export default function About() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-10">
-        {/* Mission */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
+        {/* Mission (glass card) */}
+        <section className="rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md p-6 shadow-lg">
           <div className="flex items-start gap-4">
             <div>
               <h2 className="text-xl font-semibold text-slate-900">
@@ -47,7 +56,7 @@ export default function About() {
           </div>
         </section>
 
-        {/* What we offer */}
+        {/* What we offer (glass cards) */}
         <section>
           <h3 className="text-lg font-semibold text-slate-900">
             What we offer
@@ -57,7 +66,7 @@ export default function About() {
             quickly.
           </p>
           <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 hover:shadow transition">
+            <article className="rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md p-5 shadow">
               <div className="flex items-center justify-between">
                 <h4 className="text-base font-semibold text-slate-900">
                   Ambulance
@@ -69,7 +78,7 @@ export default function About() {
                 visibility.
               </p>
             </article>
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 hover:shadow transition">
+            <article className="rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md p-5 shadow">
               <div className="flex items-center justify-between">
                 <h4 className="text-base font-semibold text-slate-900">Car</h4>
                 <Car className="h-5 w-5 text-slate-800" />
@@ -79,7 +88,7 @@ export default function About() {
                 availability.
               </p>
             </article>
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 hover:shadow transition">
+            <article className="rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md p-5 shadow">
               <div className="flex items-center justify-between">
                 <h4 className="text-base font-semibold text-slate-900">
                   Truck
@@ -93,11 +102,11 @@ export default function About() {
           </div>
         </section>
 
-        {/* How it works */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
+        {/* How it works (glass section + inner glass tiles) */}
+        <section className="rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md p-6 shadow">
           <h3 className="text-lg font-semibold text-slate-900">How it works</h3>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-xl border border-white/30 bg-white/40 backdrop-blur-md p-4 shadow-sm">
               <div className="flex items-center gap-2 text-slate-900 font-medium">
                 <Map className="h-4 w-4" /> Search
               </div>
@@ -106,7 +115,7 @@ export default function About() {
                 availability.
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-xl border border-white/30 bg-white/40 backdrop-blur-md p-4 shadow-sm">
               <div className="flex items-center gap-2 text-slate-900 font-medium">
                 <Users className="h-4 w-4" /> Post or Book
               </div>
@@ -115,7 +124,7 @@ export default function About() {
                 details.
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-xl border border-white/30 bg-white/40 backdrop-blur-md p-4 shadow-sm">
               <div className="flex items-center gap-2 text-slate-900 font-medium">
                 <Shield className="h-4 w-4" /> Confirm
               </div>
@@ -123,7 +132,7 @@ export default function About() {
                 Driver reviews and accepts; seats update automatically.
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-xl border border-white/30 bg-white/40 backdrop-blur-md p-4 shadow-sm">
               <div className="flex items-center gap-2 text-slate-900 font-medium">
                 <Clock className="h-4 w-4" /> Manage
               </div>
@@ -134,7 +143,7 @@ export default function About() {
           </div>
         </section>
 
-        {/* Role-based access */}
+        {/* Role-based access (glass cards) */}
         <section>
           <h3 className="text-lg font-semibold text-slate-900">
             Role-based access
@@ -144,21 +153,21 @@ export default function About() {
             and keep navigation clear.
           </p>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md p-5 shadow">
               <h4 className="text-base font-semibold text-slate-900">User</h4>
               <p className="mt-1 text-sm text-slate-700">
                 Search rides, request seats, and manage bookings with simple
                 controls.
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md p-5 shadow">
               <h4 className="text-base font-semibold text-slate-900">Driver</h4>
               <p className="mt-1 text-sm text-slate-700">
                 Post rides, update seats and pricing, and accept or reject
                 requests.
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md p-5 shadow">
               <h4 className="text-base font-semibold text-slate-900">Admin</h4>
               <p className="mt-1 text-sm text-slate-700">
                 Oversee users and rides with filtering and pagination tools.
@@ -167,35 +176,35 @@ export default function About() {
           </div>
         </section>
 
-        {/* At a glance (mirrors style seen on Home) */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
+        {/* At a glance (glass band) */}
+        <section className="rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md p-6 shadow">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <div>
               <p className="text-3xl font-bold text-slate-900">3</p>
-              <p className="text-slate-600 text-sm">Vehicle categories</p>
+              <p className="text-slate-700 text-sm">Vehicle categories</p>
             </div>
             <div>
               <p className="text-3xl font-bold text-slate-900">64+</p>
-              <p className="text-slate-600 text-sm">District routes</p>
+              <p className="text-slate-700 text-sm">District routes</p>
             </div>
             <div>
               <p className="text-3xl font-bold text-slate-900">24/7</p>
-              <p className="text-slate-600 text-sm">Search & book</p>
+              <p className="text-slate-700 text-sm">Search &amp; book</p>
             </div>
             <div>
               <p className="text-3xl font-bold text-slate-900">Return</p>
-              <p className="text-slate-600 text-sm">Round-trip options</p>
+              <p className="text-slate-700 text-sm">Round-trip options</p>
             </div>
           </div>
         </section>
 
-        {/* Why ReturnVehicle */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
+        {/* Why ReturnVehicle (glass cards) */}
+        <section className="rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md p-6 shadow">
           <h3 className="text-lg font-semibold text-slate-900">
             Why ReturnVehicle
           </h3>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-xl border border-white/30 bg-white/40 backdrop-blur-md p-4 shadow-sm">
               <div className="flex items-center gap-2 text-slate-900 font-medium">
                 <Globe2 className="h-4 w-4" /> Bangladesh-focused
               </div>
@@ -204,7 +213,7 @@ export default function About() {
                 auto-complete.
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-xl border border-white/30 bg-white/40 backdrop-blur-md p-4 shadow-sm">
               <div className="flex items-center gap-2 text-slate-900 font-medium">
                 <Shield className="h-4 w-4" /> Role clarity
               </div>
@@ -212,7 +221,7 @@ export default function About() {
                 Guarded endpoints and dashboards simplify what each role can do.
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-xl border border-white/30 bg-white/40 backdrop-blur-md p-4 shadow-sm">
               <div className="flex items-center gap-2 text-slate-900 font-medium">
                 <Users className="h-4 w-4" /> Clean UX
               </div>
@@ -223,8 +232,8 @@ export default function About() {
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
+        {/* CTA (glass band) */}
+        <section className="rounded-2xl border border-white/30 bg-white/40 backdrop-blur-md p-6 shadow">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div>
               <h3 className="text-lg font-semibold text-slate-900">

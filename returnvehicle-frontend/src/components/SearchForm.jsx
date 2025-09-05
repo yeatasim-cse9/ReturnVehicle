@@ -12,13 +12,16 @@ export default function SearchForm() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
 
+  const today = new Date().toISOString().split("T")[0];
+
   const onSubmit = (e) => {
     e.preventDefault();
     const sp = new URLSearchParams();
     if (from.trim()) sp.set("from", from.trim());
     if (to.trim()) sp.set("to", to.trim());
     if (date) sp.set("date", date); // ✅ backend expects `date`
-    if (category) sp.set("category", category); // case-insensitive server-side
+    if (category) sp.set("category", category);
+    // case-insensitive server-side
     if (passengers) sp.set("passengers", String(passengers));
     if (minPrice) sp.set("minPrice", String(minPrice));
     if (maxPrice) sp.set("maxPrice", String(maxPrice));
@@ -109,6 +112,7 @@ export default function SearchForm() {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                min={today}
                 className="w-full rounded-xl border-0 bg-white shadow-sm px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200"
               />
             </div>
